@@ -45,6 +45,12 @@ dependencies:
   
   # Shared Preferences for local storage
   shared_preferences: ^2.2.3
+  
+  # Image Picker for gallery and camera
+  image_picker: ^1.1.2
+  
+  # Image Cropper for photo cropping
+  image_cropper: ^11.0.0
 
 dev_dependencies:
   flutter_test:

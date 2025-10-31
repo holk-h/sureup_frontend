@@ -2,9 +2,8 @@ import 'package:flutter/cupertino.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../config/text_styles.dart';
-import '../models/subject.dart';
+import '../models/models.dart';
 import '../widgets/cards/knowledge_point_card.dart';
-import '../utils/mock_data.dart';
 
 /// 发现页 - 错题地图
 class MapScreen extends StatefulWidget {
@@ -19,16 +18,11 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allPoints = MockData.getKnowledgePoints();
-    final filteredPoints = _selectedSubject == '全部'
-        ? allPoints
-        : allPoints.where((p) => p.subject.displayName == _selectedSubject).toList();
+    // TODO: 接入真实的知识点数据
+    final filteredPoints = <KnowledgePoint>[];
 
     // 按学科分组
-    final Map<String, List<dynamic>> groupedPoints = {};
-    for (var point in filteredPoints) {
-      groupedPoints.putIfAbsent(point.subject.displayName, () => []).add(point);
-    }
+    final Map<String, List<dynamic>> groupedPoints = <String, List<dynamic>>{};
 
     return CupertinoPageScaffold(
       backgroundColor: const Color(0x00000000), // 透明背景

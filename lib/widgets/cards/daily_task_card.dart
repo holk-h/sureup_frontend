@@ -11,6 +11,7 @@ class DailyTaskCard extends StatelessWidget {
   final int masteredCount; // 已掌握数量
   final double progress; // 完成进度 0-1
   final int currentStage; // 当前阶段 1-错题记录 2-分析 3-练习 0-未开始
+  final VoidCallback? onTap; // 点击回调
 
   const DailyTaskCard({
     super.key,
@@ -19,29 +20,32 @@ class DailyTaskCard extends StatelessWidget {
     required this.masteredCount,
     required this.progress,
     this.currentStage = 0,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.divider,
-          width: 1,
-        ),
-        boxShadow: [
-          // 简单的浅灰色小阴影
-          BoxShadow(
-            color: const Color(0x08000000),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.divider,
+            width: 1,
           ),
-        ],
-      ),
-      child: Padding(
+          boxShadow: [
+            // 简单的浅灰色小阴影
+            BoxShadow(
+              color: const Color(0x08000000),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,6 +133,7 @@ class DailyTaskCard extends StatelessWidget {
             // 学习阶段 - 三阶段展示
             _buildLearningStages(),
           ],
+        ),
         ),
       ),
     );

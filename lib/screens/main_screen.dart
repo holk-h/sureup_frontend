@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import '../config/colors.dart';
 import '../widgets/common/custom_tab_bar.dart';
+import '../services/mistake_service.dart';
+import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'analysis_screen.dart';
 import 'practice_screen.dart';
@@ -19,6 +21,12 @@ class _MainScreenState extends State<MainScreen> {
   Key _homeScreenKey = UniqueKey(); // 主页的唯一key，用于刷新
   
   late List<Widget> _pages;
+  
+  // 积累统计数据
+  int _daysSinceLastReview = 0;
+  int _accumulatedMistakes = 0;
+  
+  final _mistakeService = MistakeService();
 
   @override
   void initState() {
@@ -30,19 +38,46 @@ class _MainScreenState extends State<MainScreen> {
       const PracticeScreen(),
       const ProfileScreen(),
     ];
+    
+    // 加载积累统计数据
+    _loadAccumulationStats();
+  }
+  
+  /// 加载积累统计数据
+  Future<void> _loadAccumulationStats() async {
+    try {
+      final authService = AuthService();
+      final userId = authService.userId;
+      
+      if (userId == null) {
+        // 未登录，使用默认值
+        return;
+      }
+      
+      // 初始化服务
+      _mistakeService.initialize(authService.client);
+      
+      // 获取积累统计
+      final stats = await _mistakeService.getAccumulationStats(userId);
+      
+      if (mounted) {
+        setState(() {
+          _daysSinceLastReview = stats['daysSinceLastReview'] ?? 0;
+          _accumulatedMistakes = stats['accumulatedMistakes'] ?? 0;
+        });
+      }
+    } catch (e) {
+      print('加载积累统计失败: $e');
+      // 静默失败，使用默认值
+    }
   }
 
   // 判断是否应该显示分析小红点
   bool _shouldShowAnalysisBadge() {
-    // 模拟数据：距上次复盘的天数和积累的错题数
-    // TODO: 实际使用时，应该从数据层获取真实数据
-    const daysSinceLastReview = 3;
-    const accumulatedMistakes = 15;
-    
     // 只有满足以下条件之一时才显示小红点：
     // 1. 距离上次复盘超过2天
     // 2. 积累的错题超过30道
-    return daysSinceLastReview > 2 || accumulatedMistakes > 30;
+    return _daysSinceLastReview > 2 || _accumulatedMistakes > 30;
   }
 
   final List<CustomTabItem> _tabItems = [
@@ -101,6 +136,10 @@ class _MainScreenState extends State<MainScreen> {
                     if (index == 0) {
                       _homeScreenKey = UniqueKey();
                       _pages[0] = HomeScreen(key: _homeScreenKey);
+                    }
+                    // 如果切换到分析页面，刷新积累统计
+                    if (index == 1) {
+                      _loadAccumulationStats();
                     }
                   });
                 }

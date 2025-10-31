@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
 import '../../config/colors.dart';
 import '../../screens/camera_placeholder_screen.dart';
+import '../../screens/auth/login_screen.dart';
+import '../../providers/auth_provider.dart';
 
 /// 自定义底部导航栏
 class CustomTabBar extends StatelessWidget {
@@ -160,11 +163,48 @@ class CustomTabBar extends StatelessWidget {
   }
 
   void _onCameraButtonTap(BuildContext context) {
-    Navigator.of(context).push(
-      CupertinoPageRoute(
-        builder: (context) => const CameraPlaceholderScreen(),
-      ),
-    );
+    // 检查登录状态
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (authProvider.isLoggedIn) {
+      // 已登录，跳转到学科选择和拍照页面
+      Navigator.of(context).push(
+        CupertinoPageRoute(
+          builder: (context) => const CameraPlaceholderScreen(),
+        ),
+      );
+    } else {
+      // 未登录，跳转到登录页面
+      // 使用更快的过渡动画减少卡顿
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+          transitionDuration: const Duration(milliseconds: 250), // 缩短过渡时间
+          reverseTransitionDuration: const Duration(milliseconds: 200),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            // 使用简单的淡入+轻微滑动效果，减少渲染压力
+            const begin = Offset(0.0, 0.03); // 很小的偏移
+            const end = Offset.zero;
+            const curve = Curves.easeOut;
+            
+            var slideTween = Tween(begin: begin, end: end).chain(
+              CurveTween(curve: curve),
+            );
+            var fadeTween = Tween<double>(begin: 0.0, end: 1.0).chain(
+              CurveTween(curve: curve),
+            );
+            
+            return FadeTransition(
+              opacity: animation.drive(fadeTween),
+              child: SlideTransition(
+                position: animation.drive(slideTween),
+                child: child,
+              ),
+            );
+          },
+        ),
+      );
+    }
   }
 }
 

@@ -1,11 +1,12 @@
 import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
-import '../utils/mock_data.dart';
 import '../widgets/cards/daily_review_card.dart';
 import '../widgets/cards/practice_mode_card.dart';
 import '../models/models.dart';
-import 'question_screen.dart';
+import '../providers/auth_provider.dart';
+import '../services/stats_service.dart';
 
 /// 练习页 - 智能练习
 class PracticeScreen extends StatefulWidget {
@@ -16,9 +17,58 @@ class PracticeScreen extends StatefulWidget {
 }
 
 class _PracticeScreenState extends State<PracticeScreen> {
+  final StatsService _statsService = StatsService();
+  
+  // 初始显示默认数据，不阻塞UI
+  int _continuousDays = 0;
+  bool _isInitialized = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // 异步加载数据
+    _loadData();
+  }
+  
+  /// 加载连续练习数据
+  Future<void> _loadData() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userProfile?.id;
+
+      // 如果未登录，显示默认数据
+      if (userId == null) {
+        if (mounted && !_isInitialized) {
+          setState(() {
+            _continuousDays = 0;
+            _isInitialized = true;
+          });
+        }
+        return;
+      }
+
+      // 初始化服务
+      await _statsService.initialize(authProvider.authService.client);
+
+      // 获取统计数据
+      final stats = await _statsService.getHomeStats(userId);
+
+      // 数据获取成功后，更新UI
+      if (mounted) {
+        setState(() {
+          _continuousDays = stats['continuousDays'] ?? 0;
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      print('加载连续练习数据失败: $e');
+      // 静默失败，使用默认数据
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
-    final stats = MockData.getStats();
     
     return CupertinoPageScaffold(
       backgroundColor: const Color(0x00000000), // 透明背景
@@ -48,7 +98,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   const SizedBox(height: AppConstants.spacingM),
                   
                   // 激励卡片（连续练习）
-                  _buildStreakBanner(stats['continuousDays'] as int),
+                  _buildStreakBanner(_continuousDays),
                   
                   const SizedBox(height: AppConstants.spacingL),
                   
@@ -95,27 +145,28 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildStreakBanner(int days) {
-    if (days < 3) return const SizedBox.shrink();
+    // 根据天数获取不同的样式和内容
+    final streakInfo = _getStreakInfo(days);
     
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacingL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.warning.withOpacity(0.15),
-            AppColors.warning.withOpacity(0.08),
+            streakInfo.color.withOpacity(0.15),
+            streakInfo.color.withOpacity(0.08),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
         border: Border.all(
-          color: AppColors.warning.withOpacity(0.3),
+          color: streakInfo.color.withOpacity(0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.warning.withOpacity(0.1),
+            color: streakInfo.color.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -123,15 +174,15 @@ class _PracticeScreenState extends State<PracticeScreen> {
       ),
       child: Row(
         children: [
-          // 火焰图标
+          // 图标
           Container(
             width: 56,
             height: 56,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.warning,
-                  AppColors.warning.withOpacity(0.8),
+                  streakInfo.color,
+                  streakInfo.color.withOpacity(0.8),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -139,16 +190,16 @@ class _PracticeScreenState extends State<PracticeScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.warning.withOpacity(0.3),
+                  color: streakInfo.color.withOpacity(0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                '🔥',
-                style: TextStyle(fontSize: 28),
+                streakInfo.emoji,
+                style: const TextStyle(fontSize: 28),
               ),
             ),
           ),
@@ -176,21 +227,21 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.warning,
-                            AppColors.warning.withOpacity(0.85),
+                            streakInfo.color,
+                            streakInfo.color.withOpacity(0.85),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.warning.withOpacity(0.25),
+                            color: streakInfo.color.withOpacity(0.25),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Text(
-                        '第 $days 天',
+                        days == 0 ? '第 0 天' : '第 $days 天',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -202,9 +253,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '坚持就是胜利！继续保持～',
-                  style: TextStyle(
+                Text(
+                  streakInfo.message,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textTertiary,
                     fontWeight: FontWeight.w500,
@@ -216,6 +267,65 @@ class _PracticeScreenState extends State<PracticeScreen> {
         ],
       ),
     );
+  }
+  
+  /// 根据连续天数获取对应的样式和内容
+  ({String emoji, Color color, String message}) _getStreakInfo(int days) {
+    if (days == 0) {
+      return (
+        emoji: '💪',
+        color: AppColors.primary,
+        message: '今天就开始第一天吧！',
+      );
+    } else if (days == 1) {
+      return (
+        emoji: '🌱',
+        color: AppColors.success,
+        message: '很棒的开始！明天继续～',
+      );
+    } else if (days == 2) {
+      return (
+        emoji: '✨',
+        color: AppColors.primary,
+        message: '不错！再坚持一天就三天啦～',
+      );
+    } else if (days >= 3 && days < 7) {
+      return (
+        emoji: '🔥',
+        color: AppColors.warning,
+        message: '坚持得很好！继续保持～',
+      );
+    } else if (days >= 7 && days < 14) {
+      return (
+        emoji: '⭐️',
+        color: const Color(0xFFFFB800),
+        message: '太棒了！已经一周了，你真厉害！',
+      );
+    } else if (days >= 14 && days < 30) {
+      return (
+        emoji: '🏆',
+        color: const Color(0xFFFF6B35),
+        message: '两周了！你的毅力令人钦佩！',
+      );
+    } else if (days >= 30 && days < 60) {
+      return (
+        emoji: '👑',
+        color: const Color(0xFF9B59B6),
+        message: '满月啦！你已经养成好习惯了！',
+      );
+    } else if (days >= 60 && days < 100) {
+      return (
+        emoji: '💎',
+        color: const Color(0xFF3498DB),
+        message: '两个月！你就是坚持的典范！',
+      );
+    } else {
+      return (
+        emoji: '🌟',
+        color: const Color(0xFFE74C3C),
+        message: '$days天！你是真正的学习大师！',
+      );
+    }
   }
 
   Widget _buildSectionHeader(String title) {
@@ -232,18 +342,18 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   // 开始智能复盘
   void _startDailyReview() {
-    final session = MockData.generateDailyReviewSession();
-    final allQuestions = MockData.getQuestions();
-    final questions = allQuestions
-        .where((q) => session.questionIds.contains(q.id))
-        .toList();
-    
-    Navigator.of(context).push(
-      CupertinoPageRoute(
-        builder: (context) => QuestionScreen(
-          session: session,
-          questions: questions,
-        ),
+    // TODO: 接入真实的每日复盘数据
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('功能开发中'),
+        content: const Text('每日智能复盘功能即将上线'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
       ),
     );
   }
@@ -254,15 +364,23 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   void _showSubjectPicker() {
-    final allPoints = MockData.getKnowledgePoints();
-    final subjects = allPoints.map((p) => p.subject).toSet().toList();
-    
-    showCupertinoModalPopup(
+    // TODO: 接入真实的知识点数据
+    showCupertinoDialog(
       context: context,
-      builder: (BuildContext context) => _buildSubjectPicker(subjects),
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('功能开发中'),
+        content: const Text('知识点练习功能即将上线'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
     );
   }
 
+  // 下面的方法暂时未使用，保留以供将来实现
   Widget _buildSubjectPicker(List<Subject> subjects) {
     return Container(
       height: 300,
@@ -304,9 +422,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
               itemCount: subjects.length,
               itemBuilder: (context, index) {
                 final subject = subjects[index];
-                final subjectPoints = MockData.getKnowledgePoints()
-                    .where((p) => p.subject == subject)
-                    .toList();
+                final subjectPoints = <KnowledgePoint>[];  // TODO: 获取真实数据
                 
                 return CupertinoButton(
                   padding: const EdgeInsets.symmetric(
@@ -497,18 +613,19 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   // 选择错题
   void _selectMistake() {
-    final mistakes = MockData.getMistakeRecords()
-        .where((m) => m.masteryStatus != MasteryStatus.mastered)
-        .toList();
-    
-    if (mistakes.isEmpty) {
-      _showEmptyMistakesDialog();
-      return;
-    }
-    
-    showCupertinoModalPopup(
+    // TODO: 接入真实的错题数据
+    showCupertinoDialog(
       context: context,
-      builder: (BuildContext context) => _buildMistakePicker(mistakes),
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('功能开发中'),
+        content: const Text('错题专项练习功能即将上线'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -585,7 +702,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${mistake.knowledgePointName} 错题',
+                              '${mistake.subject.displayName} 错题',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -607,7 +724,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    mistake.knowledgePointName,
+                                    mistake.subject.displayName,
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: AppColors.primary,
@@ -641,38 +758,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   // 开始知识点练习
   void _startKnowledgePointPractice(KnowledgePoint point) {
-    final session = MockData.generateKnowledgePointSession(point);
-    final allQuestions = MockData.getQuestions();
-    final questions = allQuestions
-        .where((q) => session.questionIds.contains(q.id))
-        .toList();
-    
-    Navigator.of(context).push(
-      CupertinoPageRoute(
-        builder: (context) => QuestionScreen(
-          session: session,
-          questions: questions,
-        ),
-      ),
-    );
+    // TODO: 接入真实的知识点练习数据
   }
 
   // 开始错题练习
   void _startMistakePractice(MistakeRecord mistake) {
-    final session = MockData.generateMistakeDrillSession(mistake);
-    final allQuestions = MockData.getQuestions();
-    final questions = allQuestions
-        .where((q) => session.questionIds.contains(q.id))
-        .toList();
-    
-    Navigator.of(context).push(
-      CupertinoPageRoute(
-        builder: (context) => QuestionScreen(
-          session: session,
-          questions: questions,
-        ),
-      ),
-    );
+    // TODO: 接入真实的错题练习数据
   }
 
   void _showEmptyMistakesDialog() {

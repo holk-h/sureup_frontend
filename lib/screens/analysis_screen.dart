@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
@@ -10,6 +9,7 @@ import '../services/mistake_service.dart';
 import '../services/auth_service.dart';
 import 'subject_detail_screen.dart';
 import 'ai_analysis_review_screen.dart';
+import 'auth/login_screen.dart';
 
 /// 分析页 - 错题分析和知识点地图
 class AnalysisScreen extends StatefulWidget {
@@ -44,10 +44,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       final authService = AuthService();
       final userId = authService.userId;
       
+      // 如果未登录，显示空数据（不报错）
       if (userId == null) {
         setState(() {
+          _allPoints = [];
+          _accumulationStats = {
+            'daysSinceLastReview': 0,
+            'accumulatedMistakes': 0,
+          };
           _isLoading = false;
-          _error = '用户未登录';
         });
         return;
       }
@@ -268,64 +273,47 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   // 没有关注学科的空状态
   Widget _buildNoFocusSubjectsState() {
-    return Container(
-      padding: const EdgeInsets.all(AppConstants.spacingXL),
-      child: Column(
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(40),
-            ),
-            child: const Icon(
-              CupertinoIcons.book,
-              size: 40,
-              color: AppColors.accent,
-            ),
-          ),
-          const SizedBox(height: AppConstants.spacingM),
-          const Text(
-            '关注学科暂无数据',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '你关注的学科暂时还没有错题数据\n去"我的"页面可以调整关注学科',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.primaryUltraLight,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.2),
-                width: 1,
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(AppConstants.spacingXL),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: const Icon(
+                CupertinoIcons.book,
+                size: 40,
+                color: AppColors.accent,
               ),
             ),
-            child: const Text(
-              '💡 提示：目前演示数据仅包含数学、物理、化学、英语',
+            const SizedBox(height: AppConstants.spacingM),
+            const Text(
+              '关注学科暂无数据',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '你关注的学科暂时还没有错题数据\n去"我的"页面可以调整关注学科',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 color: AppColors.textSecondary,
-                height: 1.4,
+                height: 1.5,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -342,16 +330,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final shouldShowPrompt = daysSinceLastReview > 2 || accumulatedMistakes > 30;
     
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          CupertinoPageRoute(
-            builder: (context) => AIAnalysisReviewScreen(
-              accumulatedMistakes: accumulatedMistakes,
-              daysSinceLastReview: daysSinceLastReview,
-            ),
-          ),
-        );
-      },
+      onTap: () => _handleAnalysisCardTap(accumulatedMistakes, daysSinceLastReview),
       child: Container(
       padding: const EdgeInsets.all(AppConstants.spacingL),
       decoration: BoxDecoration(
@@ -775,17 +754,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final masteryColor = _getMasteryColor(avgMastery);
     
     return GestureDetector(
-      onTap: () {
-        // 使用最简单的导航方式，完全避免 Hero 动画
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => SubjectDetailScreen(
-              subject: subjectName,
-              knowledgePoints: points,
-            ),
-          ),
-        );
-      },
+      onTap: () => _handleSubjectCardTap(subjectName, points),
       child: Container(
         margin: isCompact ? EdgeInsets.zero : const EdgeInsets.only(bottom: AppConstants.spacingM),
         decoration: BoxDecoration(
@@ -1132,6 +1101,51 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (level >= 60) return AppColors.accent;
     if (level >= 45) return AppColors.warning;
     return AppColors.error;
+  }
+
+  /// 处理 AI 分析卡片点击
+  void _handleAnalysisCardTap(int accumulatedMistakes, int daysSinceLastReview) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      _navigateToLogin();
+      return;
+    }
+    
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => AIAnalysisReviewScreen(
+          accumulatedMistakes: accumulatedMistakes,
+          daysSinceLastReview: daysSinceLastReview,
+        ),
+      ),
+    );
+  }
+
+  /// 处理学科卡片点击
+  void _handleSubjectCardTap(String subjectName, List<KnowledgePoint> points) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      _navigateToLogin();
+      return;
+    }
+    
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => SubjectDetailScreen(
+          subject: subjectName,
+          knowledgePoints: points,
+        ),
+      ),
+    );
+  }
+
+  /// 导航到登录页面
+  void _navigateToLogin() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+    );
   }
 
 }

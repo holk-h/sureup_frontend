@@ -13,6 +13,7 @@ class AuthProvider with ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get isLoggedIn => _isLoggedIn;
   UserProfile? get userProfile => _userProfile;
+  AuthService get authService => _authService;
   
   AuthProvider() {
     _initialize();
@@ -21,6 +22,9 @@ class AuthProvider with ChangeNotifier {
   /// 初始化 - 静默尝试恢复会话
   Future<void> _initialize() async {
     try {
+      // 初始化 AuthService（包括本地存储）
+      await _authService.initialize();
+      
       // 尝试恢复之前的会话
       final hasSession = await _authService.tryRestoreSession();
       _isLoggedIn = hasSession;

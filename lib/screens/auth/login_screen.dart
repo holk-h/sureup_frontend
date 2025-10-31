@@ -36,14 +36,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   void initState() {
     super.initState();
     
-    // 初始化动画
+    // 初始化动画（更短的动画时长）
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 300), // 从400ms缩短到300ms
       vsync: this,
     );
     
     _fadeAnimation = Tween<double>(
-      begin: 0.0,
+      begin: 0.8, // 从0.8开始而不是0，减少动画范围
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
@@ -51,14 +51,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     ));
     
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.05), // 减小滑动距离，从0.3改为0.05
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOut,
     ));
     
-    _animationController.forward();
+    // 延迟启动动画，让首帧先渲染出来
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _animationController.forward();
+      }
+    });
     
     // 检查是否需要恢复倒计时状态
     _checkAndRestoreCountdown();
@@ -123,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     // 前端限流检查
     if (!_canSend) {
       setState(() {
-        _errorMessage = '请求过于频繁，请${_countdown}秒后再试';
+        _errorMessage = '请求过于频繁，请$_countdown秒后再试';
       });
       return;
     }
@@ -444,7 +449,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               padding: EdgeInsets.zero,
               onPressed: () {
                 // TODO: 打开用户协议
-              },
+              }, minimumSize: Size(0, 0),
               child: Text(
                 '《用户协议》',
                 style: TextStyle(
@@ -452,7 +457,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   color: AppColors.primary,
                   fontWeight: FontWeight.w500,
                 ),
-              ), minimumSize: Size(0, 0),
+              ),
             ),
             Text(
               '和',
@@ -465,7 +470,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               padding: EdgeInsets.zero,
               onPressed: () {
                 // TODO: 打开隐私政策
-              },
+              }, minimumSize: Size(0, 0),
               child: Text(
                 '《隐私政策》',
                 style: TextStyle(
@@ -473,7 +478,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   color: AppColors.primary,
                   fontWeight: FontWeight.w500,
                 ),
-              ), minimumSize: Size(0, 0),
+              ),
             ),
           ],
         ),

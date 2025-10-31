@@ -410,7 +410,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         const SizedBox(width: 8),
         CupertinoButton(
           padding: EdgeInsets.zero,
-          onPressed: _canResend && !_isLoading ? _resendCode : null,
+          onPressed: _canResend && !_isLoading ? _resendCode : null, minimumSize: Size(0, 0),
           child: Text(
             _canResend ? '点击重新发送' : '${_countdown}s',
             style: TextStyle(
@@ -418,7 +418,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
               fontWeight: FontWeight.w600,
               color: _canResend ? AppColors.primary : AppColors.textTertiary,
             ),
-          ), minimumSize: Size(0, 0),
+          ),
         ),
       ],
     );

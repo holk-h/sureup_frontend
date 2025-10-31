@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/user_profile.dart';
+import 'local_storage_service.dart';
 
 /// 认证服务 - 处理用户登录、注册、会话管理
 class AuthService {
@@ -14,13 +14,14 @@ class AuthService {
   late Account _account;
   late Databases _databases;
   late Functions _functions;
+  final LocalStorageService _localStorage = LocalStorageService();
   
   String? _userId;  // 当前用户ID
   String? _userPhone;  // 当前用户手机号
   UserProfile? _currentProfile;
   
-  // 初始化Appwrite客户端
-  void initialize() {
+  // 初始化Appwrite客户端和本地存储
+  Future<void> initialize() async {
     _client = Client()
         .setEndpoint(ApiConfig.endpoint)
         .setProject(ApiConfig.projectId);
@@ -28,6 +29,8 @@ class AuthService {
     _account = Account(_client);
     _databases = Databases(_client);
     _functions = Functions(_client);
+    
+    await _localStorage.initialize();
   }
 
   /// 获取当前用户ID
@@ -182,6 +185,19 @@ class AuthService {
         'id': document.$id,
         ...document.data,
       });
+      
+      // 同时保存到本地
+      await _localStorage.saveUserInfo(userId, {
+        'id': document.$id,
+        'name': _currentProfile!.name,
+        'avatar': _currentProfile!.avatar,
+        'phone': _currentProfile!.phone,
+        'email': _currentProfile!.email,
+        'grade': _currentProfile!.grade,
+        'focusSubjects': _currentProfile!.focusSubjects,
+        'createdAt': _currentProfile!.createdAt.toIso8601String(),
+      });
+      
       return true;
     } catch (e) {
       // 档案不存在
@@ -243,6 +259,30 @@ class AuthService {
         ...document.data,
       });
       
+      // 保存到本地
+      await _localStorage.saveUserInfo(_userId!, {
+        'id': document.$id,
+        'name': name,
+        'phone': _userPhone,
+        'grade': grade,
+        'focusSubjects': focusSubjects ?? [],
+        'createdAt': now.toIso8601String(),
+      });
+      
+      // 初始化统计数据到本地
+      await _localStorage.saveUserStats(_userId!, {
+        'totalMistakes': 0,
+        'masteredMistakes': 0,
+        'totalPracticeSessions': 0,
+        'completedSessions': 0,
+        'continuousDays': 0,
+        'weekMistakes': 0,
+        'userName': name,
+        'usageDays': 1,
+        'createdAt': now.toIso8601String(),
+        'statsUpdatedAt': now.toIso8601String(),
+      });
+      
       print('用户档案创建成功: $_currentProfile'); // 调试
     } catch (e) {
       print('创建用户档案异常: $e'); // 调试
@@ -280,6 +320,18 @@ class AuthService {
         'id': document.$id,
         ...document.data,
       });
+      
+      // 更新本地用户信息
+      await _localStorage.saveUserInfo(_userId!, {
+        'id': document.$id,
+        'name': _currentProfile!.name,
+        'avatar': _currentProfile!.avatar,
+        'phone': _currentProfile!.phone,
+        'email': _currentProfile!.email,
+        'grade': _currentProfile!.grade,
+        'focusSubjects': _currentProfile!.focusSubjects,
+        'createdAt': _currentProfile!.createdAt.toIso8601String(),
+      });
     } catch (e) {
       throw _handleAuthError(e);
     }
@@ -288,7 +340,8 @@ class AuthService {
   /// 尝试从本地恢复登录状态
   Future<bool> tryRestoreSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // 先从本地读取用户信息
+      final prefs = await _localStorage.prefs;
       final userId = prefs.getString('user_id');
       final userPhone = prefs.getString('user_phone');
       
@@ -297,7 +350,6 @@ class AuthService {
       }
       
       // 检查 Appwrite Session 是否有效
-      // Session 由 Appwrite 自动管理（通过 cookie），不需要手动设置
       try {
         // 尝试获取当前账户信息，如果session有效则成功
         final account = await _account.get();
@@ -307,23 +359,27 @@ class AuthService {
         _userId = userId;
         _userPhone = userPhone;
         
-        // 加载用户档案
-        await _checkUserProfile(userId);
+        // 优先从本地加载用户档案
+        final localUserInfo = await _localStorage.getUserInfo(userId);
+        if (localUserInfo != null) {
+          _currentProfile = UserProfile.fromJson(localUserInfo);
+          print('📦 从本地恢复用户档案: ${_currentProfile!.name}');
+        } else {
+          // 本地没有，从云端加载
+          await _checkUserProfile(userId);
+        }
         
         return true;
       } catch (e) {
         print('Session 无效或已过期: $e'); // 调试
         // Session 已过期，清除本地数据
-        await prefs.clear();
+        await _localStorage.clearAll();
         return false;
       }
     } catch (e) {
       print('恢复会话失败: $e'); // 调试
       // 会话已过期或不存在，清除本地数据
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
-      } catch (_) {}
+      await _localStorage.clearAll();
       return false;
     }
   }
@@ -344,9 +400,9 @@ class AuthService {
       _userPhone = null;
       _currentProfile = null;
       
-      // 清除本地存储
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      // 清除本地存储（包括用户信息、统计数据、图表数据等）
+      await _localStorage.clearAll();
+      print('✅ 已清除所有本地数据');
     } catch (e) {
       throw _handleAuthError(e);
     }
@@ -354,12 +410,12 @@ class AuthService {
 
   /// 保存登录状态到本地
   Future<void> _saveLoginState(String userId, String phone) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _localStorage.prefs;
     await prefs.setString('user_id', userId);
     await prefs.setString('user_phone', phone);
     await prefs.setBool('is_logged_in', true);
     
-    print('登录状态已保存到本地（Session由Appwrite自动管理）'); // 调试
+    print('💾 登录状态已保存到本地（Session由Appwrite自动管理）'); // 调试
   }
 
   /// 标准化手机号格式
