@@ -6,18 +6,15 @@ import 'package:image_cropper/image_cropper.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../config/text_styles.dart';
-import '../models/models.dart';
 import 'photo_detail_screen.dart';
 import 'mistake_analysis_progress_screen.dart';
 
 /// 错题照片预览和管理页面
 /// 支持查看已拍摄照片、继续拍摄、从相册选择、提交照片
+/// 学科由 AI 自动识别，不需要手动选择
 class CameraScreen extends StatefulWidget {
-  final Subject subject; // 学科
-  
   const CameraScreen({
     super.key,
-    required this.subject,
   });
 
   @override
@@ -285,7 +282,6 @@ class _CameraScreenState extends State<CameraScreen> {
           fullscreenDialog: true,
           builder: (context) => MistakeAnalysisProgressScreen(
             photoFilePaths: _photos,
-            subject: widget.subject,
           ),
         ),
       );

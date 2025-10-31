@@ -1,25 +1,22 @@
-import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:appwrite/appwrite.dart';
 import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../config/text_styles.dart';
-import '../models/models.dart';
 import '../services/mistake_service.dart';
 import '../providers/auth_provider.dart';
+import 'mistake_preview_screen.dart';
 
 /// 错题分析进度页面
 /// 显示图片上传和 AI 分析的实时进度
+/// 学科由 AI 自动识别
 class MistakeAnalysisProgressScreen extends StatefulWidget {
   final List<String> photoFilePaths; // 照片文件路径列表
-  final Subject subject; // 学科
 
   const MistakeAnalysisProgressScreen({
     super.key,
     required this.photoFilePaths,
-    required this.subject,
   });
 
   @override
@@ -38,9 +35,6 @@ class _MistakeAnalysisProgressScreenState
   bool _isCompleted = false;
   bool _hasError = false;
   String? _errorMessage;
-
-  // Realtime 订阅
-  RealtimeSubscription? _subscription;
 
   // 动画控制器
   late AnimationController _pulseController;
@@ -67,7 +61,6 @@ class _MistakeAnalysisProgressScreenState
   @override
   void dispose() {
     _pulseController.dispose();
-    _subscription?.close();
     super.dispose();
   }
 
@@ -98,86 +91,39 @@ class _MistakeAnalysisProgressScreenState
       // 创建错题记录（包含上传）
       final recordId = await _mistakeService.createMistakeFromPhotos(
         userId: userId,
-        subject: widget.subject,
         photoFilePaths: widget.photoFilePaths,
       );
 
+      // 获取上传的图片 ID
+      final record = await _mistakeService.getMistakeRecord(recordId);
+      final imageIds = record?.originalImageIds ?? [];
+
       setState(() {
-        _progress = 0.5;
+        _progress = 1.0;
         _isUploading = false;
-        _status = 'AI 正在分析错题...';
+        _isCompleted = true;
+        _status = '上传完成！';
       });
 
-      // 2. 订阅实时更新
-      _subscription = _mistakeService.subscribeMistakeAnalysis(
-        mistakeRecordId: recordId,
-        onUpdate: _handleAnalysisUpdate,
-        onError: _handleAnalysisError,
-      );
+      HapticFeedback.mediumImpact();
 
-      // 模拟进度增长（因为实际分析时间不确定）
-      _simulateAnalysisProgress();
+      // 等待一小段时间显示完成状态
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      if (!mounted) return;
+
+      // 跳转到预览页面
+      Navigator.of(context).pushReplacement(
+        CupertinoPageRoute(
+          builder: (context) => MistakePreviewScreen(
+            mistakeRecordId: recordId,
+            originalImageIds: imageIds,
+          ),
+        ),
+      );
     } catch (e) {
       _handleError('上传失败: $e');
     }
-  }
-
-  // 模拟分析进度（平滑增长）
-  void _simulateAnalysisProgress() {
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (!mounted || _isCompleted || _hasError) {
-        timer.cancel();
-        return;
-      }
-
-      if (_progress < 0.9) {
-        setState(() {
-          _progress += 0.05;
-        });
-      } else {
-        timer.cancel();
-      }
-    });
-  }
-
-  // 处理分析更新
-  void _handleAnalysisUpdate(MistakeRecord record) {
-    if (!mounted) return;
-
-    setState(() {
-      switch (record.analysisStatus) {
-        case AnalysisStatus.processing:
-          _status = 'AI 分析中...';
-          _progress = 0.7;
-          break;
-
-        case AnalysisStatus.completed:
-          _status = '分析完成！';
-          _progress = 1.0;
-          _isCompleted = true;
-          HapticFeedback.mediumImpact();
-
-          // 2 秒后自动返回
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              Navigator.of(context).pop(true);
-            }
-          });
-          break;
-
-        case AnalysisStatus.failed:
-          _handleError(record.analysisError ?? '分析失败');
-          break;
-
-        default:
-          break;
-      }
-    });
-  }
-
-  // 处理分析错误
-  void _handleAnalysisError(dynamic error) {
-    _handleError('分析失败: $error');
   }
 
   // 处理错误

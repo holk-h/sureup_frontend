@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../config/colors.dart';
-import '../../screens/camera_placeholder_screen.dart';
+import '../../screens/camera_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../providers/auth_provider.dart';
 
@@ -167,10 +167,10 @@ class CustomTabBar extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     if (authProvider.isLoggedIn) {
-      // 已登录，跳转到学科选择和拍照页面
+      // 已登录，直接跳转到拍照页面
       Navigator.of(context).push(
         CupertinoPageRoute(
-          builder: (context) => const CameraPlaceholderScreen(),
+          builder: (context) => const CameraScreen(),
         ),
       );
     } else {

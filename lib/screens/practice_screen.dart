@@ -702,7 +702,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${mistake.subject.displayName} 错题',
+                              '${mistake.subject?.displayName ?? "错题"}',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -714,25 +714,27 @@ class _PracticeScreenState extends State<PracticeScreen> {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    mistake.subject.displayName,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w600,
+                                if (mistake.subject != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      mistake.subject!.displayName,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
+                                if (mistake.subject != null)
+                                  const SizedBox(width: 8),
                                 Text(
                                   daysAgo == 0 ? '今天' : '$daysAgo天前',
                                   style: const TextStyle(

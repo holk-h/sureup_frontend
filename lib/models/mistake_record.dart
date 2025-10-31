@@ -29,7 +29,7 @@ class MistakeRecord {
   final String? questionId; // 关联题目ID（分析完成后填充）
   
   // 学科和知识点
-  final Subject subject;
+  final Subject? subject; // AI 自动识别，可为空
   final List<String>? moduleIds; // 模块ID列表
   final List<String>? knowledgePointIds; // 知识点ID列表
   
@@ -49,7 +49,7 @@ class MistakeRecord {
   final int correctCount; // 正确次数
   
   // 原始图片（拍照录入的）- 存储 fileId
-  final List<String>? originalImageUrls;
+  final List<String>? originalImageIds;
   
   // 时间戳
   final DateTime createdAt; // 错题时间
@@ -60,7 +60,7 @@ class MistakeRecord {
     required this.id,
     required this.userId,
     this.questionId,
-    required this.subject,
+    this.subject, // 改为可选，由 AI 自动识别
     this.moduleIds,
     this.knowledgePointIds,
     this.errorReason,
@@ -72,7 +72,7 @@ class MistakeRecord {
     this.masteryStatus = MasteryStatus.notStarted,
     this.reviewCount = 0,
     this.correctCount = 0,
-    this.originalImageUrls,
+    this.originalImageIds,
     required this.createdAt,
     this.lastReviewAt,
     this.masteredAt,
@@ -97,7 +97,7 @@ class MistakeRecord {
   Map<String, dynamic> toJson() => {
     'userId': userId,
     'questionId': questionId,
-    'subject': subject.name,
+    if (subject != null) 'subject': subject!.name, // 只在有值时才包含
     'moduleIds': moduleIds,
     'knowledgePointIds': knowledgePointIds,
     'errorReason': errorReason?.name,
@@ -109,7 +109,7 @@ class MistakeRecord {
     'masteryStatus': masteryStatus.name,
     'reviewCount': reviewCount,
     'correctCount': correctCount,
-    'originalImageUrls': originalImageUrls,
+    'originalImageIds': originalImageIds,
     'lastReviewAt': lastReviewAt?.toIso8601String(),
     'masteredAt': masteredAt?.toIso8601String(),
   };
@@ -120,7 +120,9 @@ class MistakeRecord {
       id: json['id'] as String? ?? json['\$id'] as String,
       userId: json['userId'] as String,
       questionId: json['questionId'] as String?,
-      subject: Subject.values.byName(json['subject'] as String),
+      subject: json['subject'] != null 
+          ? Subject.values.byName(json['subject'] as String)
+          : null, // subject 可为空，由 AI 分析后填充
       moduleIds: (json['moduleIds'] as List<dynamic>?)?.cast<String>(),
       knowledgePointIds: (json['knowledgePointIds'] as List<dynamic>?)?.cast<String>(),
       errorReason: json['errorReason'] != null 
@@ -140,7 +142,7 @@ class MistakeRecord {
           : MasteryStatus.notStarted,
       reviewCount: json['reviewCount'] as int? ?? 0,
       correctCount: json['correctCount'] as int? ?? 0,
-      originalImageUrls: (json['originalImageUrls'] as List<dynamic>?)?.cast<String>(),
+      originalImageIds: (json['originalImageIds'] as List<dynamic>?)?.cast<String>(),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : (json['\$createdAt'] != null 
@@ -160,7 +162,7 @@ class MistakeRecord {
     String? id,
     String? userId,
     String? questionId,
-    Subject? subject,
+    Subject? Function()? subject, // 使用函数类型以支持设置为 null
     List<String>? moduleIds,
     List<String>? knowledgePointIds,
     ErrorReason? errorReason,
@@ -172,7 +174,7 @@ class MistakeRecord {
     MasteryStatus? masteryStatus,
     int? reviewCount,
     int? correctCount,
-    List<String>? originalImageUrls,
+    List<String>? originalImageIds,
     DateTime? createdAt,
     DateTime? lastReviewAt,
     DateTime? masteredAt,
@@ -180,7 +182,7 @@ class MistakeRecord {
     id: id ?? this.id,
     userId: userId ?? this.userId,
     questionId: questionId ?? this.questionId,
-    subject: subject ?? this.subject,
+    subject: subject != null ? subject() : this.subject,
     moduleIds: moduleIds ?? this.moduleIds,
     knowledgePointIds: knowledgePointIds ?? this.knowledgePointIds,
     errorReason: errorReason ?? this.errorReason,
@@ -192,7 +194,7 @@ class MistakeRecord {
     masteryStatus: masteryStatus ?? this.masteryStatus,
     reviewCount: reviewCount ?? this.reviewCount,
     correctCount: correctCount ?? this.correctCount,
-    originalImageUrls: originalImageUrls ?? this.originalImageUrls,
+    originalImageIds: originalImageIds ?? this.originalImageIds,
     createdAt: createdAt ?? this.createdAt,
     lastReviewAt: lastReviewAt ?? this.lastReviewAt,
     masteredAt: masteredAt ?? this.masteredAt,

@@ -39,7 +39,7 @@ class Question {
   final List<String>? options; // 选项（选择题使用）
   final String? answer; // 答案
   final String? explanation; // 解析
-  final List<String>? imageUrls; // 题目图片（支持多张）
+  final List<String>? imageIds; // 题目图片文件ID（支持多张，存储在bucket中）
   
   // 元数据
   final DateTime createdAt;
@@ -57,7 +57,7 @@ class Question {
     this.options,
     this.answer,
     this.explanation,
-    this.imageUrls,
+    this.imageIds,
     required this.createdAt,
     this.updatedAt,
     this.metadata,
@@ -75,7 +75,7 @@ class Question {
     'options': options,
     'answer': answer,
     'explanation': explanation,
-    'imageUrls': imageUrls,
+    'imageIds': imageIds,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
     'metadata': metadata,
@@ -93,7 +93,7 @@ class Question {
     options: (json['options'] as List<dynamic>?)?.cast<String>(),
     answer: json['answer'] as String?,
     explanation: json['explanation'] as String?,
-    imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>(),
+    imageIds: (json['imageIds'] as List<dynamic>?)?.cast<String>(),
     createdAt: DateTime.parse(json['createdAt'] as String),
     updatedAt: json['updatedAt'] != null 
         ? DateTime.parse(json['updatedAt'] as String) 
@@ -113,7 +113,7 @@ class Question {
     List<String>? options,
     String? answer,
     String? explanation,
-    List<String>? imageUrls,
+    List<String>? imageIds,
     DateTime? createdAt,
     DateTime? updatedAt,
     Map<String, dynamic>? metadata,
@@ -128,7 +128,7 @@ class Question {
     options: options ?? this.options,
     answer: answer ?? this.answer,
     explanation: explanation ?? this.explanation,
-    imageUrls: imageUrls ?? this.imageUrls,
+    imageIds: imageIds ?? this.imageIds,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     metadata: metadata ?? this.metadata,

@@ -156,9 +156,9 @@ class MistakeService {
 
   /// 创建错题记录（拍照录入）
   /// 返回创建的错题记录 ID
+  /// subject 由 AI 自动识别，不需要手动传入
   Future<String> createMistakeFromPhotos({
     required String userId,
-    required Subject subject,
     required List<String> photoFilePaths,
     String? note,
   }) async {
@@ -177,8 +177,8 @@ class MistakeService {
       final data = {
         'userId': userId,
         'questionId': null, // 拍照录入时暂无题目ID，等待AI分析后填充
-        'subject': subject.name,
-        'originalImageUrls': fileIds,
+        // subject 字段不再传入，由后端 AI 自动识别
+        'originalImageIds': fileIds, // 图片文件ID数组
         'analysisStatus': 'pending', // 等待 AI 分析
         'masteryStatus': 'notStarted',
         'reviewCount': 0,
@@ -304,6 +304,26 @@ class MistakeService {
     } catch (e) {
       print('删除错题记录失败: $e');
       rethrow;
+    }
+  }
+
+  /// 获取题目详情
+  Future<Question?> getQuestion(String questionId) async {
+    try {
+      final document = await _databases.getDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.questionsCollectionId,
+        documentId: questionId,
+      );
+
+      return Question.fromJson({
+        'id': document.$id,
+        'createdAt': document.$createdAt,
+        ...document.data,
+      });
+    } catch (e) {
+      print('获取题目详情失败: $e');
+      return null;
     }
   }
 }
