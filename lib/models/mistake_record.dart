@@ -14,6 +14,7 @@ enum MasteryStatus {
 /// AI 分析状态
 enum AnalysisStatus {
   pending('待分析'),
+  ocrOK('OCR完成'),
   processing('分析中'),
   completed('已完成'),
   failed('失败');
@@ -146,13 +147,23 @@ class MistakeRecord {
       }
     }
     
+    // 处理 subject - 容错处理，OCR 阶段可能是 "unknown"
+    Subject? subject;
+    try {
+      final subjectStr = json['subject'] as String?;
+      if (subjectStr != null && subjectStr != 'unknown') {
+        subject = Subject.values.byName(subjectStr);
+      }
+    } catch (e) {
+      // 如果解析失败（比如遇到未知的学科名），subject 保持为 null
+      subject = null;
+    }
+    
     return MistakeRecord(
       id: json['id'] as String? ?? json['\$id'] as String,
       userId: json['userId'] as String,
       questionId: json['questionId'] as String?,
-      subject: json['subject'] != null 
-          ? Subject.values.byName(json['subject'] as String)
-          : null, // subject 可为空，由 AI 分析后填充
+      subject: subject, // subject 可为空，由 AI 分析后填充
       moduleIds: (json['moduleIds'] as List<dynamic>?)?.cast<String>(),
       knowledgePointIds: (json['knowledgePointIds'] as List<dynamic>?)?.cast<String>(),
       errorReason: errorReasonValue,

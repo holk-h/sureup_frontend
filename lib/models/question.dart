@@ -28,7 +28,7 @@ enum Difficulty {
 /// 题目模型（统一的题目实体，适用于错题和练习题）
 class Question {
   final String id;
-  final Subject subject;
+  final Subject? subject; // 可选，OCR 阶段可能为 null
   
   // 支持多模块和多知识点
   final List<String> moduleIds; // 关联模块ID列表（支持综合题）
@@ -57,7 +57,7 @@ class Question {
 
   const Question({
     required this.id,
-    required this.subject,
+    this.subject, // 可选，OCR 阶段可能为 null
     required this.moduleIds,
     required this.knowledgePointIds,
     required this.type,
@@ -78,7 +78,7 @@ class Question {
   /// JSON 序列化
   Map<String, dynamic> toJson() => {
     'id': id,
-    'subject': subject.name,
+    'subject': subject?.name,
     'moduleIds': moduleIds,
     'knowledgePointIds': knowledgePointIds,
     'type': type.name,
@@ -113,9 +113,21 @@ class Question {
       knowledgePointIds = [json['knowledgePointId'] as String];
     }
     
+    // 处理 subject - 容错处理，OCR 阶段可能是 "unknown"
+    Subject? subject;
+    try {
+      final subjectStr = json['subject'] as String?;
+      if (subjectStr != null && subjectStr != 'unknown') {
+        subject = Subject.values.byName(subjectStr);
+      }
+    } catch (e) {
+      // 如果解析失败（比如遇到未知的学科名），subject 保持为 null
+      subject = null;
+    }
+    
     return Question(
       id: json['id'] as String? ?? json['\$id'] as String,
-    subject: Subject.values.byName(json['subject'] as String),
+      subject: subject,
       moduleIds: moduleIds,
       knowledgePointIds: knowledgePointIds,
     type: QuestionType.values.byName(json['type'] as String),

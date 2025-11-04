@@ -58,6 +58,7 @@ class AppInitializer extends StatefulWidget {
 }
 
 class _AppInitializerState extends State<AppInitializer> {
+  bool _hasTriggeredInitialRefresh = false;
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +70,34 @@ class _AppInitializerState extends State<AppInitializer> {
           return _buildSplashScreen();
         }
         
-        return MainScreen();
+        // 在AuthProvider初始化完成后，触发一次数据刷新
+        if (!_hasTriggeredInitialRefresh) {
+          _hasTriggeredInitialRefresh = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _triggerInitialDataRefresh(authProvider);
+          });
+        }
+        
+        return const MainScreen();
       },
     );
+  }
+  
+  /// 触发应用启动后的初始数据刷新
+  void _triggerInitialDataRefresh(AuthProvider authProvider) {
+    print('🚀 AuthProvider初始化完成，触发初始数据刷新...');
+    
+    // 如果用户已登录，刷新用户档案
+    if (authProvider.isLoggedIn) {
+      print('👤 用户已登录，刷新用户档案...');
+      authProvider.refreshProfile().then((_) {
+        print('✅ 用户档案刷新完成');
+      }).catchError((e) {
+        print('❌ 用户档案刷新失败: $e');
+      });
+    } else {
+      print('👤 用户未登录，跳过用户档案刷新');
+    }
   }
 
   Widget _buildSplashScreen() {

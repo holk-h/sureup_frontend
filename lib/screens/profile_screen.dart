@@ -9,7 +9,13 @@ import 'auth/login_screen.dart';
 
 /// 我的页 - 个人信息
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  /// 刷新触发器 - 当这个值改变时，触发内容刷新
+  final int refreshTrigger;
+  
+  const ProfileScreen({
+    super.key,
+    this.refreshTrigger = 0,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -21,11 +27,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     // 页面加载时刷新用户档案
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (authProvider.isLoggedIn) {
-        authProvider.refreshProfile();
-      }
+      _refreshProfileData();
     });
+  }
+  
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 检查刷新触发器是否改变
+    if (widget.refreshTrigger != oldWidget.refreshTrigger) {
+      print('👤 收到个人界面刷新触发器: ${widget.refreshTrigger}');
+      _refreshProfileData();
+    }
+  }
+  
+  /// 刷新个人档案数据
+  void _refreshProfileData() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isLoggedIn) {
+      print('📊 开始后台刷新个人档案数据...');
+      // 异步刷新，不阻塞UI
+      authProvider.refreshProfile().then((_) {
+        print('✅ 个人档案数据刷新完成');
+      }).catchError((e) {
+        print('❌ 个人档案数据刷新失败: $e');
+      });
+    }
   }
 
   @override
@@ -447,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '已学${DateTime.now().difference(user.createdAt).inDays}天',
+                              '已学${user.activeDays}天',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -494,7 +521,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: _buildCompactStatBox(
             label: '学习天数',
-            value: '${DateTime.now().difference(user.createdAt).inDays}',
+            value: '${user.activeDays}',
             icon: CupertinoIcons.calendar,
             color: AppColors.accent,
           ),

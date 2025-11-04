@@ -130,11 +130,14 @@ class _HomeScreenState extends State<HomeScreen>
   
   /// 强制刷新内容（忽略时间限制）
   void _forceRefreshContent() {
-    print('🔄 强制刷新主页内容（鼓励语和一言）');
+    print('🔄 强制刷新主页内容（数据、鼓励语和一言）');
     setState(() {
       _contentRefreshKey = UniqueKey(); // 触发鼓励语和一言的重建
       _lastVisibleTime = DateTime.now();
     });
+    
+    // 后台刷新统计数据
+    _loadData();
     
     // 重新播放动画
     _encouragementController.reset();

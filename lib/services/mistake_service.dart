@@ -27,6 +27,11 @@ class MistakeService {
     _knowledgePointCache.clear();
   }
   
+  /// 清除单个题目的缓存
+  void clearQuestionCache(String questionId) {
+    _questionCache.remove(questionId);
+  }
+  
   /// 预加载错题数据（包括题目、模块、知识点）到缓存
   Future<void> preloadMistakeRecordData(List<String> recordIds) async {
     // 1. 过滤掉已经缓存的记录ID
@@ -435,8 +440,27 @@ class MistakeService {
         documentId: recordId,
         data: {'note': note},
       );
+      // 更新成功后，使缓存失效
+      _mistakeRecordCache.remove(recordId);
     } catch (e) {
       print('更新备注失败: $e');
+      rethrow;
+    }
+  }
+  
+  /// 更新题目答案
+  Future<void> updateQuestionAnswer(String questionId, String answer) async {
+    try {
+      await _databases.updateDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.questionsCollectionId,
+        documentId: questionId,
+        data: {'answer': answer},
+      );
+      // 更新成功后，使缓存失效
+      _questionCache.remove(questionId);
+    } catch (e) {
+      print('更新答案失败: $e');
       rethrow;
     }
   }

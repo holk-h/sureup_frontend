@@ -19,8 +19,9 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int _homeRefreshTrigger = 0; // 用于触发主页刷新
+  int _profileRefreshTrigger = 0; // 用于触发个人界面刷新
   
-  // 页面列表 - 会在 build 中动态更新 HomeScreen
+  // 页面列表 - 会在 build 中动态更新 HomeScreen 和 ProfileScreen
   late List<Widget> _pages;
   
   // 积累统计数据
@@ -42,8 +43,16 @@ class _MainScreenState extends State<MainScreen> {
       const AnalysisScreen(key: PageStorageKey('analysis_page')),
       const SizedBox(), // 占位符，中间是拍照按钮
       const PracticeScreen(key: PageStorageKey('practice_page')),
-      const ProfileScreen(key: PageStorageKey('profile_page')),
+      ProfileScreen(
+        key: const PageStorageKey('profile_page'),
+        refreshTrigger: _profileRefreshTrigger,
+      ),
     ];
+    
+    // 应用启动时的初始化数据刷新
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _performStartupDataRefresh();
+    });
     
     // 加载积累统计数据
     _loadAccumulationStats();
@@ -75,6 +84,32 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       print('加载积累统计失败: $e');
       // 静默失败，使用默认值
+    }
+  }
+  
+  /// 应用启动时的数据刷新
+  void _performStartupDataRefresh() {
+    print('🚀 应用启动，开始初始化数据刷新...');
+    
+    // 触发主页数据刷新
+    _homeRefreshTrigger++;
+    _pages[0] = HomeScreen(
+      key: const PageStorageKey('home_page'),
+      refreshTrigger: _homeRefreshTrigger,
+    );
+    
+    // 触发个人界面数据刷新
+    _profileRefreshTrigger++;
+    _pages[4] = ProfileScreen(
+      key: const PageStorageKey('profile_page'),
+      refreshTrigger: _profileRefreshTrigger,
+    );
+    
+    print('✅ 应用启动数据刷新触发完成 (主页: $_homeRefreshTrigger, 个人: $_profileRefreshTrigger)');
+    
+    // 更新页面状态
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -139,19 +174,29 @@ class _MainScreenState extends State<MainScreen> {
                   setState(() {
                     _currentIndex = index;
                     
-                    // 如果切换到主页，触发刷新
+                    // 如果切换到主页，触发后台数据刷新
                     if (index == 0) {
                       _homeRefreshTrigger++;
                       _pages[0] = HomeScreen(
                         key: const PageStorageKey('home_page'),
                         refreshTrigger: _homeRefreshTrigger,
                       );
-                      print('🏠 切换到主页，刷新触发器: $_homeRefreshTrigger');
+                      print('🏠 切换到主页，触发后台数据刷新: $_homeRefreshTrigger');
                     }
                     
                     // 如果切换到分析页面，刷新积累统计
                     if (index == 1) {
                       _loadAccumulationStats();
+                    }
+                    
+                    // 如果切换到个人界面，触发后台数据刷新
+                    if (index == 4) {
+                      _profileRefreshTrigger++;
+                      _pages[4] = ProfileScreen(
+                        key: const PageStorageKey('profile_page'),
+                        refreshTrigger: _profileRefreshTrigger,
+                      );
+                      print('👤 切换到个人界面，触发后台数据刷新: $_profileRefreshTrigger');
                     }
                   });
                 }
