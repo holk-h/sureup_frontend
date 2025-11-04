@@ -88,38 +88,26 @@ class _MistakeAnalysisProgressScreenState
         throw Exception('未登录');
       }
 
-      // 创建错题记录（包含上传）
-      final recordId = await _mistakeService.createMistakeFromPhotos(
+      // 创建错题记录（为每张图片创建一条记录）
+      final recordIds = await _mistakeService.createMistakeFromPhotos(
         userId: userId,
         photoFilePaths: widget.photoFilePaths,
       );
 
-      // 获取上传的图片 ID
-      final record = await _mistakeService.getMistakeRecord(recordId);
-      final imageIds = record?.originalImageIds ?? [];
-
-      setState(() {
-        _progress = 1.0;
-        _isUploading = false;
-        _isCompleted = true;
-        _status = '上传完成！';
-      });
-
+      // 直接跳转到第一条记录的预览页面
       HapticFeedback.mediumImpact();
-
-      // 等待一小段时间显示完成状态
-      await Future.delayed(const Duration(milliseconds: 800));
 
       if (!mounted) return;
 
-      // 跳转到预览页面
-      Navigator.of(context).pushReplacement(
+      // 立即跳转到预览页面（支持切换多条记录），同时清除所有中间页面（只保留主页）
+      Navigator.of(context).pushAndRemoveUntil(
         CupertinoPageRoute(
           builder: (context) => MistakePreviewScreen(
-            mistakeRecordId: recordId,
-            originalImageIds: imageIds,
+            mistakeRecordIds: recordIds,
+            initialIndex: 0,
           ),
         ),
+        (route) => route.isFirst, // 只保留第一个路由（主页）
       );
     } catch (e) {
       _handleError('上传失败: $e');
@@ -276,7 +264,7 @@ class _MistakeAnalysisProgressScreenState
       );
     }
 
-    // 分析中的动画
+    // 上传中的圆圈加载动画
     return ScaleTransition(
       scale: _pulseAnimation,
       child: Container(
@@ -291,15 +279,14 @@ class _MistakeAnalysisProgressScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFF472B6).withOpacity(0.4),
+              color: const Color(0xFFF472B6).withValues(alpha: 0.4),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: const Icon(
-          CupertinoIcons.sparkles,
-          size: 48,
+        child: const CupertinoActivityIndicator(
+          radius: 20,
           color: CupertinoColors.white,
         ),
       ),
@@ -348,7 +335,7 @@ class _MistakeAnalysisProgressScreenState
         Text(
           _isUploading
               ? '正在上传照片到云端...'
-              : 'AI 正在识别和分析题目，这可能需要一些时间',
+              : 'AI 正在识别和分析题目\n分析过程大约需要 10-15 秒，请稍候',
           style: AppTextStyles.caption.copyWith(
             color: AppColors.textTertiary,
           ),

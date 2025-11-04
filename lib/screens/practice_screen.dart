@@ -702,7 +702,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${mistake.subject?.displayName ?? "错题"}',
+                              mistake.subject?.displayName ?? "错题",
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

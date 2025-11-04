@@ -18,8 +18,9 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  Key _homeScreenKey = UniqueKey(); // 主页的唯一key，用于刷新
+  int _homeRefreshTrigger = 0; // 用于触发主页刷新
   
+  // 页面列表 - 会在 build 中动态更新 HomeScreen
   late List<Widget> _pages;
   
   // 积累统计数据
@@ -31,12 +32,17 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // 初始化页面列表
     _pages = [
-      HomeScreen(key: _homeScreenKey),
-      const AnalysisScreen(),
+      HomeScreen(
+        key: const PageStorageKey('home_page'),
+        refreshTrigger: _homeRefreshTrigger,
+      ),
+      const AnalysisScreen(key: PageStorageKey('analysis_page')),
       const SizedBox(), // 占位符，中间是拍照按钮
-      const PracticeScreen(),
-      const ProfileScreen(),
+      const PracticeScreen(key: PageStorageKey('practice_page')),
+      const ProfileScreen(key: PageStorageKey('profile_page')),
     ];
     
     // 加载积累统计数据
@@ -132,11 +138,17 @@ class _MainScreenState extends State<MainScreen> {
                 if (index != 2) {
                   setState(() {
                     _currentIndex = index;
-                    // 如果切换到主页，刷新主页内容
+                    
+                    // 如果切换到主页，触发刷新
                     if (index == 0) {
-                      _homeScreenKey = UniqueKey();
-                      _pages[0] = HomeScreen(key: _homeScreenKey);
+                      _homeRefreshTrigger++;
+                      _pages[0] = HomeScreen(
+                        key: const PageStorageKey('home_page'),
+                        refreshTrigger: _homeRefreshTrigger,
+                      );
+                      print('🏠 切换到主页，刷新触发器: $_homeRefreshTrigger');
                     }
+                    
                     // 如果切换到分析页面，刷新积累统计
                     if (index == 1) {
                       _loadAccumulationStats();

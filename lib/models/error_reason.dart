@@ -6,6 +6,7 @@ enum ErrorReason {
   careless('粗心'),
   unfamiliar('没见过这种题'),
   timeInsufficient('时间不够'),
+  completelyUnknown('完全不会'),
   other('其他');
 
   const ErrorReason(this.displayName);

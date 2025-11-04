@@ -471,6 +471,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // 将年级数字转换为文字
   String _getGradeText(int grade) {
     const gradeMap = {
+      1: '小学一年级',
+      2: '小学二年级',
+      3: '小学三年级',
+      4: '小学四年级',
+      5: '小学五年级',
+      6: '小学六年级',
       7: '初一',
       8: '初二',
       9: '初三',
@@ -1361,6 +1367,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // 显示编辑年级对话框
   void _showEditGradeDialog(int currentGrade) {
     final grades = [
+      {'value': 1, 'label': '小学一年级'},
+      {'value': 2, 'label': '小学二年级'},
+      {'value': 3, 'label': '小学三年级'},
+      {'value': 4, 'label': '小学四年级'},
+      {'value': 5, 'label': '小学五年级'},
+      {'value': 6, 'label': '小学六年级'},
       {'value': 7, 'label': '初一'},
       {'value': 8, 'label': '初二'},
       {'value': 9, 'label': '初三'},

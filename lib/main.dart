@@ -3,11 +3,16 @@ import 'package:provider/provider.dart';
 import 'config/colors.dart';
 import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
+import 'services/local_storage_service.dart';
 import 'providers/auth_provider.dart';
 
-void main() {
+void main() async {
   // 确保Flutter binding初始化
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🚀 预初始化本地存储服务（提升性能）
+  await LocalStorageService().initialize();
+  print('✅ 本地存储服务已预初始化');
   
   // 初始化Appwrite
   final authService = AuthService();
@@ -45,8 +50,14 @@ class SureUpApp extends StatelessWidget {
 }
 
 /// 应用初始化器 - 静默初始化后直接进入主页
-class AppInitializer extends StatelessWidget {
+class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
+
+  @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
+
+class _AppInitializerState extends State<AppInitializer> {
 
   @override
   Widget build(BuildContext context) {

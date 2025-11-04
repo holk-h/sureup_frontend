@@ -9,6 +9,7 @@ export 'error_reason.dart';
 export 'question.dart';
 export 'mistake_record.dart';
 export 'knowledge_point.dart';
+export 'module.dart';
 export 'practice_session.dart';
 
 // 用户与报告

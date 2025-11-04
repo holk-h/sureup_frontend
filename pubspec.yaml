@@ -52,6 +52,9 @@ dependencies:
   # Image Cropper for photo cropping
   image_cropper: ^11.0.0
 
+  # Markdown and LaTeX support (原生支持，适合 AI 输出)
+  gpt_markdown: ^1.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

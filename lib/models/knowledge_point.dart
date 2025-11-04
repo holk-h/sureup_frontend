@@ -1,37 +1,35 @@
 import 'subject.dart';
 
-/// 知识点模型（聚合数据，通常从错题记录计算得出）
+/// 知识点模型（对应数据库表 user_knowledge_points）
 class KnowledgePoint {
   final String id;
-  final Subject subject;
+  final String userId; // 用户ID
+  final String moduleId; // 知识点模块ID（关联到 knowledge_points_library）
+  final Subject subject; // 学科
   final String name; // 知识点名称
-  final String? parentId; // 父知识点ID（支持层级结构）
-  final int level; // 层级（1=一级知识点，2=二级...）
+  final String? description; // 知识点描述
   
-  // 统计数据（可从MistakeRecord聚合计算）
+  // 统计数据
   final int mistakeCount; // 错题总数
   final int masteredCount; // 已掌握数量
-  final int reviewCount; // 复习总次数
-  final int correctCount; // 正确总次数
+  
+  // 关联数据
+  final List<String> questionIds; // 关联的题目ID列表
   
   // 时间信息
-  final DateTime? firstMistakeAt; // 第一次错题时间
   final DateTime? lastMistakeAt; // 最近错题时间
-  final DateTime? lastReviewAt; // 最近复习时间
   
   const KnowledgePoint({
     required this.id,
+    required this.userId,
+    required this.moduleId,
     required this.subject,
     required this.name,
-    this.parentId,
-    this.level = 1,
+    this.description,
     this.mistakeCount = 0,
     this.masteredCount = 0,
-    this.reviewCount = 0,
-    this.correctCount = 0,
-    this.firstMistakeAt,
+    this.questionIds = const [],
     this.lastMistakeAt,
-    this.lastReviewAt,
   });
 
   /// 掌握率（0-100）
@@ -40,84 +38,78 @@ class KnowledgePoint {
     return ((masteredCount / mistakeCount) * 100).round();
   }
 
-  /// 练习正确率（0-1）
-  double get accuracy {
-    if (reviewCount == 0) return 0.0;
-    return correctCount / reviewCount;
-  }
-
-  /// 是否需要重点复习
+  /// 是否需要重点复习（掌握率低于80%）
   bool get needsReview {
-    return mistakeCount > 0 && 
-           masteryLevel < 80 && 
-           (lastReviewAt == null || 
-            DateTime.now().difference(lastReviewAt!) > const Duration(days: 3));
+    return mistakeCount > 0 && masteryLevel < 80;
   }
 
-  /// JSON 序列化
+  /// JSON 序列化（数据库中 subject 字段存储中文名称）
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'subject': subject.name,
+    'userId': userId,
+    'moduleId': moduleId,
+    'subject': subject.displayName, // 使用中文名称以匹配数据库格式
     'name': name,
-    'parentId': parentId,
-    'level': level,
+    'description': description,
     'mistakeCount': mistakeCount,
     'masteredCount': masteredCount,
-    'reviewCount': reviewCount,
-    'correctCount': correctCount,
-    'firstMistakeAt': firstMistakeAt?.toIso8601String(),
+    'questionIds': questionIds,
     'lastMistakeAt': lastMistakeAt?.toIso8601String(),
-    'lastReviewAt': lastReviewAt?.toIso8601String(),
   };
 
-  /// JSON 反序列化
-  factory KnowledgePoint.fromJson(Map<String, dynamic> json) => KnowledgePoint(
-    id: json['id'] as String,
-    subject: Subject.values.byName(json['subject'] as String),
-    name: json['name'] as String,
-    parentId: json['parentId'] as String?,
-    level: json['level'] as int,
-    mistakeCount: json['mistakeCount'] as int,
-    masteredCount: json['masteredCount'] as int,
-    reviewCount: json['reviewCount'] as int,
-    correctCount: json['correctCount'] as int,
-    firstMistakeAt: json['firstMistakeAt'] != null 
-        ? DateTime.parse(json['firstMistakeAt'] as String) 
-        : null,
-    lastMistakeAt: json['lastMistakeAt'] != null 
-        ? DateTime.parse(json['lastMistakeAt'] as String) 
-        : null,
-    lastReviewAt: json['lastReviewAt'] != null 
-        ? DateTime.parse(json['lastReviewAt'] as String) 
-        : null,
-  );
+  /// JSON 反序列化（从数据库字段）
+  factory KnowledgePoint.fromJson(Map<String, dynamic> json) {
+    // 处理 subject 字段 - 支持枚举名称或中文显示名
+    final subjectStr = json['subject'] as String;
+    final subject = Subject.fromString(subjectStr) ?? Subject.math;
+    
+    // 处理 questionIds 字段
+    List<String> questionIds = [];
+    if (json['questionIds'] != null) {
+      if (json['questionIds'] is List) {
+        questionIds = (json['questionIds'] as List)
+            .map((e) => e as String)
+            .toList();
+      }
+    }
+    
+    return KnowledgePoint(
+      id: json['id'] as String,
+      userId: json['userId'] as String,
+      moduleId: json['moduleId'] as String,
+      subject: subject,
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      mistakeCount: (json['mistakeCount'] as int?) ?? 0,
+      masteredCount: (json['masteredCount'] as int?) ?? 0,
+      questionIds: questionIds,
+      lastMistakeAt: json['lastMistakeAt'] != null 
+          ? DateTime.parse(json['lastMistakeAt'] as String) 
+          : null,
+    );
+  }
 
   /// 复制并更新
   KnowledgePoint copyWith({
     String? id,
+    String? userId,
+    String? moduleId,
     Subject? subject,
     String? name,
-    String? parentId,
-    int? level,
+    String? description,
     int? mistakeCount,
     int? masteredCount,
-    int? reviewCount,
-    int? correctCount,
-    DateTime? firstMistakeAt,
+    List<String>? questionIds,
     DateTime? lastMistakeAt,
-    DateTime? lastReviewAt,
   }) => KnowledgePoint(
     id: id ?? this.id,
+    userId: userId ?? this.userId,
+    moduleId: moduleId ?? this.moduleId,
     subject: subject ?? this.subject,
     name: name ?? this.name,
-    parentId: parentId ?? this.parentId,
-    level: level ?? this.level,
+    description: description ?? this.description,
     mistakeCount: mistakeCount ?? this.mistakeCount,
     masteredCount: masteredCount ?? this.masteredCount,
-    reviewCount: reviewCount ?? this.reviewCount,
-    correctCount: correctCount ?? this.correctCount,
-    firstMistakeAt: firstMistakeAt ?? this.firstMistakeAt,
+    questionIds: questionIds ?? this.questionIds,
     lastMistakeAt: lastMistakeAt ?? this.lastMistakeAt,
-    lastReviewAt: lastReviewAt ?? this.lastReviewAt,
   );
 }

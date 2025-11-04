@@ -11,13 +11,20 @@ import 'auth/login_screen.dart';
 
 /// 主页 - 今日任务
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  /// 刷新触发器 - 当这个值改变时，触发内容刷新
+  final int refreshTrigger;
+  
+  const HomeScreen({
+    super.key,
+    this.refreshTrigger = 0,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> 
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final StatsService _statsService = StatsService();
   
   late AnimationController _encouragementController;
@@ -28,6 +35,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Map<String, dynamic> _stats = _getDefaultStats();
   
   bool _isInitialized = false;
+  bool _isLoading = false; // 防止重复加载
+  
+  // 用于触发鼓励语和一言刷新的key
+  Key _contentRefreshKey = UniqueKey();
+  DateTime? _lastVisibleTime;
+  
+  // 滚动控制器 - 用于预热滚动
+  final ScrollController _scrollController = ScrollController();
+  
+  @override
+  bool get wantKeepAlive => true; // 保持页面状态，避免重复构建
   
   // 获取默认统计数据
   static Map<String, dynamic> _getDefaultStats() => {
@@ -48,6 +66,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     
+    final startTime = DateTime.now();
+    print('🏠 HomeScreen initState 开始');
+    
+    // 监听应用生命周期变化
+    WidgetsBinding.instance.addObserver(this);
+    
     // 初始化鼓励语动画（缓存 Animation 对象）
     _encouragementController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -65,10 +89,55 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       end: Offset.zero,
     ).animate(curvedAnimation);
     
-    // 异步刷新数据
-    _loadData();
+    // 延迟加载数据和动画，优先渲染UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final initTime = DateTime.now().difference(startTime).inMilliseconds;
+      print('🏠 HomeScreen 首次渲染完成，耗时: ${initTime}ms');
+      
+      _lastVisibleTime = DateTime.now();
+      
+      // 加载数据
+      _loadData();
+      
+      // 延迟启动动画，避免和数据加载冲突
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) {
+          _encouragementController.forward();
+        }
+      });
+    });
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
     
-    // 启动鼓励语动画
+    // 当应用回到前台时，检查是否需要刷新内容
+    if (state == AppLifecycleState.resumed) {
+      _checkAndRefreshContent();
+    }
+  }
+  
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 检查刷新触发器是否改变
+    if (widget.refreshTrigger != oldWidget.refreshTrigger) {
+      print('🔄 收到刷新触发器: ${widget.refreshTrigger}');
+      _forceRefreshContent();
+    }
+  }
+  
+  /// 强制刷新内容（忽略时间限制）
+  void _forceRefreshContent() {
+    print('🔄 强制刷新主页内容（鼓励语和一言）');
+    setState(() {
+      _contentRefreshKey = UniqueKey(); // 触发鼓励语和一言的重建
+      _lastVisibleTime = DateTime.now();
+    });
+    
+    // 重新播放动画
+    _encouragementController.reset();
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
         _encouragementController.forward();
@@ -76,20 +145,54 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     });
   }
   
+  /// 检查并刷新内容（鼓励语和一言）
+  void _checkAndRefreshContent() {
+    // 如果距离上次显示超过5秒，就刷新内容
+    if (_lastVisibleTime == null || 
+        DateTime.now().difference(_lastVisibleTime!) > const Duration(seconds: 5)) {
+      print('🔄 刷新主页内容（鼓励语和一言）');
+      setState(() {
+        _contentRefreshKey = UniqueKey(); // 触发鼓励语和一言的重建
+        _lastVisibleTime = DateTime.now();
+      });
+      
+      // 重新播放动画
+      _encouragementController.reset();
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          _encouragementController.forward();
+        }
+      });
+    }
+  }
+  
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _encouragementController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   /// 异步刷新数据（包括图表数据）
   Future<void> _loadData() async {
+    // 防止重复加载
+    if (_isLoading) {
+      print('⚠️ 数据正在加载中，跳过重复请求');
+      return;
+    }
+    
+    _isLoading = true;
+    final loadStartTime = DateTime.now();
+    print('📊 开始加载主页数据...');
+    
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.userProfile?.id;
 
       // 如果未登录，显示默认数据
       if (userId == null) {
+        print('👤 未登录，显示默认数据');
         if (mounted && !_isInitialized) {
           setState(() {
             _stats = _getDefaultStats();
@@ -99,14 +202,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         return;
       }
 
-      // 初始化服务
+      // 初始化服务（已经预初始化了LocalStorage，这里很快）
       await _statsService.initialize(authProvider.authService.client);
-
-      // 检查并重置本周统计（如果需要）
-      await _statsService.resetWeeklyStatsIfNeeded(userId);
 
       // 获取统计数据（优先从本地读取，包括最新的图表数据）
       final stats = await _statsService.getHomeStats(userId);
+      
+      final loadTime = DateTime.now().difference(loadStartTime).inMilliseconds;
+      print('✅ 数据加载完成，耗时: ${loadTime}ms');
 
       // 数据获取成功后，更新UI
       if (mounted) {
@@ -114,15 +217,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _stats = stats;
           _isInitialized = true;
         });
+        
+        final updateTime = DateTime.now().difference(loadStartTime).inMilliseconds;
+        print('🎨 UI 更新完成，总耗时: ${updateTime}ms');
       }
     } catch (e) {
-      print('加载数据失败: $e');
+      print('❌ 加载数据失败: $e');
       // 静默失败，使用默认数据
+    } finally {
+      _isLoading = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // 必须调用以支持 AutomaticKeepAliveClientMixin
+    
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         // 无论是否登录，都显示内容（未登录时显示0）
@@ -147,6 +257,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return CupertinoPageScaffold(
       backgroundColor: const Color(0x00000000), // 透明背景
       child: CustomScrollView(
+        controller: _scrollController,
+        // 滚动性能优化
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        // 启用缓存扩展，减少重建
+        cacheExtent: 500,
         slivers: [
           // 主内容
           SliverToBoxAdapter(
@@ -175,17 +292,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     
                     const SizedBox(height: AppConstants.spacingL),
                     
-                    // 过去一周数据图表
+                    // 过去一周数据图表（使用 RepaintBoundary 隔离重绘）
                     _buildSectionHeader('📊 过去一周'),
                     const SizedBox(height: AppConstants.spacingM),
-                    WeeklyChartCard(
-                      weeklyData: weeklyData,
+                    RepaintBoundary(
+                      child: WeeklyChartCard(
+                        weeklyData: weeklyData,
+                      ),
                     ),
                     
                     const SizedBox(height: AppConstants.spacingM),
                     
-                    // 一言
-                    const HitokotoWidget(),
+                    // 一言（使用 key 触发重建）
+                    HitokotoWidget(key: _contentRefreshKey),
                     
                     const SizedBox(height: AppConstants.spacingXXL),
                   ],
@@ -249,7 +368,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   ];
 
   String _getRandomEncouragement() {
-    final random = DateTime.now().millisecondsSinceEpoch % _encouragements.length;
+    // 使用当前时间戳和随机因子来生成真正的随机数
+    final seed = DateTime.now().millisecondsSinceEpoch + _contentRefreshKey.hashCode;
+    final random = seed % _encouragements.length;
     return _encouragements[random];
   }
 

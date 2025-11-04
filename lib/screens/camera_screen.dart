@@ -136,9 +136,9 @@ class _CameraScreenState extends State<CameraScreen> {
             doneButtonTitle: '完成',
             cancelButtonTitle: '取消',
             aspectRatioPickerButtonHidden: true,
-            resetAspectRatioEnabled: false,
+            resetAspectRatioEnabled: true,
             aspectRatioLockEnabled: false,
-            minimumAspectRatio: 0.2,
+            minimumAspectRatio: 0.1, // 放宽最小长宽比限制
             rotateButtonsHidden: false,
             rotateClockwiseButtonHidden: false,
             hidesNavigationBar: false,
@@ -329,7 +329,7 @@ class _CameraScreenState extends State<CameraScreen> {
           // 返回按钮
           CupertinoButton(
             padding: EdgeInsets.zero,
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(), minimumSize: Size(44, 44),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -347,7 +347,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   ),
                 ),
               ],
-            ), minimumSize: Size(44, 44),
+            ),
           ),
 
           // 标题
@@ -368,7 +368,7 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
               borderRadius: BorderRadius.circular(16),
               color: AppColors.success,
-              onPressed: _finish,
+              onPressed: _finish, minimumSize: Size(0, 0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -400,7 +400,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
                 ],
-              ), minimumSize: Size(0, 0),
+              ),
             )
           else
             const SizedBox(width: 70), // 占位，保持标题居中
@@ -409,7 +409,7 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
-  // 构建照片网格
+  // 构建照片列表
   Widget _buildPhotoGrid() {
     return Column(
       children: [
@@ -449,24 +449,23 @@ class _CameraScreenState extends State<CameraScreen> {
           ),
         ),
 
-        // 照片网格
+        // 照片列表（单列）
         Expanded(
-          child: GridView.builder(
+          child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(
               AppConstants.spacingM,
               0,
               AppConstants.spacingM,
               AppConstants.spacingM,
             ),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.75,
-            ),
             itemCount: _photos.length,
             itemBuilder: (context, index) {
-              return _buildPhotoGridItem(index);
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index < _photos.length - 1 ? 12 : 0,
+                ),
+                child: _buildPhotoListItem(index),
+              );
             },
           ),
         ),
@@ -474,8 +473,8 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
-  // 构建照片网格项
-  Widget _buildPhotoGridItem(int index) {
+  // 构建照片列表项（单列，全宽，高度自适应）
+  Widget _buildPhotoListItem(int index) {
     return GestureDetector(
       onTap: () => _viewPhotoDetail(index),
       child: Container(
@@ -486,91 +485,134 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Stack(
+          child: Column(
             children: [
-              // 照片
-              Positioned.fill(
-                child: Image.file(
+              // 照片 - 宽度匹配，高度自适应
+              Image.file(
                   File(_photos[index]),
-                  fit: BoxFit.cover,
+                width: double.infinity,
+                fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
+                    width: double.infinity,
+                    height: 200,
                       color: AppColors.background,
                       child: Center(
                         child: Icon(
                           CupertinoIcons.exclamationmark_triangle,
                           color: AppColors.textTertiary,
-                          size: 32,
+                        size: 40,
                         ),
                       ),
                     );
                   },
                 ),
-              ),
 
-              // 顶部渐变遮罩
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 60,
+              // 底部操作栏（编辑和删除按钮）
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        CupertinoColors.black.withOpacity(0.4),
-                        CupertinoColors.black.withOpacity(0.0),
-                      ],
+                  color: AppColors.background.withOpacity(0.5),
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.divider.withOpacity(0.3),
+                      width: 1,
                     ),
                   ),
                 ),
-              ),
-
-              // 序号标签
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 序号
+                    Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                        horizontal: 12,
+                        vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.success,
+                        color: AppColors.success.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.success.withOpacity(0.3),
+                          width: 1,
+                        ),
                   ),
                   child: Text(
-                    '${index + 1}',
-                    style: const TextStyle(
-                      color: CupertinoColors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                        '第 ${index + 1} 题',
+                        style: TextStyle(
+                          color: AppColors.success,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                    // 操作按钮
+                    Row(
+                      children: [
+                        // 编辑按钮
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          onPressed: () => _editPhoto(index),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.crop,
+                                color: AppColors.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '编辑',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
+                            ],
+                ), minimumSize: Size(0, 0),
               ),
 
+                        const SizedBox(width: 4),
+
               // 删除按钮
-              Positioned(
-                top: 8,
-                right: 8,
-                child: GestureDetector(
-                  onTap: () => _confirmDeletePhoto(index),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          onPressed: () => _confirmDeletePhoto(index),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.trash,
+                                color: AppColors.error,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '删除',
+                                style: TextStyle(
                       color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      CupertinoIcons.xmark,
-                      color: CupertinoColors.white,
-                      size: 14,
-                    ),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                    ), minimumSize: Size(0, 0),
                   ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -578,6 +620,29 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
       ),
     );
+  }
+
+  // 编辑照片（重新裁剪）
+  Future<void> _editPhoto(int index) async {
+    HapticFeedback.lightImpact();
+    
+    try {
+      final originalPath = _photos[index];
+      final croppedFile = await _cropImage(originalPath);
+
+      if (!mounted) return;
+
+      // 如果用户完成裁剪，替换原照片
+      if (croppedFile != null) {
+        setState(() {
+          _photos[index] = croppedFile.path;
+        });
+        HapticFeedback.mediumImpact();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorDialog('编辑失败', '无法编辑照片，请重试');
+    }
   }
 
   // 确认删除照片
@@ -645,7 +710,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
             // 标题
             Text(
-              '还没有照片哦，可以去拍多道错题 📄',
+              '我们开始吧，可以拍多道错题 📄',
               style: AppTextStyles.largeTitle.copyWith(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -656,7 +721,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
             // 提示文字
             Text(
-              '拍完所有错题后点击右上角"完成"\nAI 会帮你逐一分析每道题',
+              '拍完所有错题后点击右上角"完成"\n等待上传并分析就可以啦',
               textAlign: TextAlign.center,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textTertiary,
@@ -743,7 +808,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '拍照',
+                      _hasPhotos ? '继续拍照' : '拍照',
                       style: AppTextStyles.button.copyWith(
                         color: CupertinoColors.white,
                         fontSize: 17,

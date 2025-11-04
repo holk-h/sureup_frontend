@@ -284,7 +284,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
+                color: AppColors.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(40),
               ),
               child: const Icon(
@@ -1129,11 +1129,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       return;
     }
     
+    // 从学科名称获取 Subject 枚举
+    final subject = Subject.fromString(subjectName);
+    if (subject == null) {
+      print('无效的学科名称: $subjectName');
+      return;
+    }
+    
     Navigator.of(context).push(
       CupertinoPageRoute(
         builder: (context) => SubjectDetailScreen(
-          subject: subjectName,
-          knowledgePoints: points,
+          subject: subject,
         ),
       ),
     );

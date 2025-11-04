@@ -26,7 +26,7 @@ enum AnalysisStatus {
 class MistakeRecord {
   final String id;
   final String userId; // 用户ID
-  final String? questionId; // 关联题目ID（分析完成后填充）
+  final String? questionId; // 关联题目ID列表（分析完成后填充，支持多道题）
   
   // 学科和知识点
   final Subject? subject; // AI 自动识别，可为空
@@ -34,7 +34,7 @@ class MistakeRecord {
   final List<String>? knowledgePointIds; // 知识点ID列表
   
   // 错题信息
-  final ErrorReason? errorReason; // 分析完成后填充
+  final String? errorReason; // 错因（可以是预定义的枚举值或自定义文本）
   final String? note; // 用户备注
   final String? userAnswer; // 用户的错误答案
   
@@ -49,7 +49,7 @@ class MistakeRecord {
   final int correctCount; // 正确次数
   
   // 原始图片（拍照录入的）- 存储 fileId
-  final List<String>? originalImageIds;
+  final String? originalImageId;
   
   // 时间戳
   final DateTime createdAt; // 错题时间
@@ -72,7 +72,7 @@ class MistakeRecord {
     this.masteryStatus = MasteryStatus.notStarted,
     this.reviewCount = 0,
     this.correctCount = 0,
-    this.originalImageIds,
+    this.originalImageId,
     required this.createdAt,
     this.lastReviewAt,
     this.masteredAt,
@@ -93,6 +93,24 @@ class MistakeRecord {
   /// 是否分析中
   bool get isAnalyzing => analysisStatus == AnalysisStatus.processing;
 
+  /// 获取错因的枚举对象（如果是预定义的）
+  ErrorReason? get errorReasonEnum {
+    if (errorReason == null) return null;
+    return ErrorReason.fromString(errorReason!);
+  }
+
+  /// 获取显示的错因文本
+  String? get errorReasonDisplay {
+    if (errorReason == null) return null;
+    // 尝试匹配预定义的枚举
+    final enumValue = ErrorReason.fromString(errorReason!);
+    if (enumValue != null) {
+      return enumValue.displayName;
+    }
+    // 否则直接返回自定义文本
+    return errorReason;
+  }
+
   /// JSON 序列化
   Map<String, dynamic> toJson() => {
     'userId': userId,
@@ -100,7 +118,7 @@ class MistakeRecord {
     if (subject != null) 'subject': subject!.name, // 只在有值时才包含
     'moduleIds': moduleIds,
     'knowledgePointIds': knowledgePointIds,
-    'errorReason': errorReason?.name,
+    'errorReason': errorReason,
     'note': note,
     'userAnswer': userAnswer,
     'analysisStatus': analysisStatus.name,
@@ -109,13 +127,25 @@ class MistakeRecord {
     'masteryStatus': masteryStatus.name,
     'reviewCount': reviewCount,
     'correctCount': correctCount,
-    'originalImageIds': originalImageIds,
+    'originalImageId': originalImageId,
     'lastReviewAt': lastReviewAt?.toIso8601String(),
     'masteredAt': masteredAt?.toIso8601String(),
   };
 
   /// JSON 反序列化
   factory MistakeRecord.fromJson(Map<String, dynamic> json) {
+    // 处理 errorReason：兼容旧数据（可能是枚举值）和新数据（字符串）
+    String? errorReasonValue;
+    if (json['errorReason'] != null) {
+      final rawValue = json['errorReason'];
+      if (rawValue is String) {
+        errorReasonValue = rawValue;
+      } else {
+        // 如果是其他类型（如旧的枚举），转换为字符串
+        errorReasonValue = rawValue.toString();
+      }
+    }
+    
     return MistakeRecord(
       id: json['id'] as String? ?? json['\$id'] as String,
       userId: json['userId'] as String,
@@ -125,9 +155,7 @@ class MistakeRecord {
           : null, // subject 可为空，由 AI 分析后填充
       moduleIds: (json['moduleIds'] as List<dynamic>?)?.cast<String>(),
       knowledgePointIds: (json['knowledgePointIds'] as List<dynamic>?)?.cast<String>(),
-      errorReason: json['errorReason'] != null 
-          ? ErrorReason.values.byName(json['errorReason'] as String)
-          : null,
+      errorReason: errorReasonValue,
       note: json['note'] as String?,
       userAnswer: json['userAnswer'] as String?,
       analysisStatus: json['analysisStatus'] != null
@@ -142,7 +170,7 @@ class MistakeRecord {
           : MasteryStatus.notStarted,
       reviewCount: json['reviewCount'] as int? ?? 0,
       correctCount: json['correctCount'] as int? ?? 0,
-      originalImageIds: (json['originalImageIds'] as List<dynamic>?)?.cast<String>(),
+      originalImageId: json['originalImageId'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : (json['\$createdAt'] != null 
@@ -165,7 +193,7 @@ class MistakeRecord {
     Subject? Function()? subject, // 使用函数类型以支持设置为 null
     List<String>? moduleIds,
     List<String>? knowledgePointIds,
-    ErrorReason? errorReason,
+    String? errorReason,
     String? note,
     String? userAnswer,
     AnalysisStatus? analysisStatus,
@@ -174,7 +202,7 @@ class MistakeRecord {
     MasteryStatus? masteryStatus,
     int? reviewCount,
     int? correctCount,
-    List<String>? originalImageIds,
+    String? originalImageId,
     DateTime? createdAt,
     DateTime? lastReviewAt,
     DateTime? masteredAt,
@@ -194,7 +222,7 @@ class MistakeRecord {
     masteryStatus: masteryStatus ?? this.masteryStatus,
     reviewCount: reviewCount ?? this.reviewCount,
     correctCount: correctCount ?? this.correctCount,
-    originalImageIds: originalImageIds ?? this.originalImageIds,
+    originalImageId: originalImageId ?? this.originalImageId,
     createdAt: createdAt ?? this.createdAt,
     lastReviewAt: lastReviewAt ?? this.lastReviewAt,
     masteredAt: masteredAt ?? this.masteredAt,

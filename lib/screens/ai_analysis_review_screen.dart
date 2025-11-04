@@ -1,8 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../widgets/common/custom_app_bar.dart';
+import '../models/models.dart';
+import '../services/mistake_service.dart';
+import '../services/knowledge_service.dart';
+import '../providers/auth_provider.dart';
 
 /// AI分析复盘页面 - 深度错题分析
 class AIAnalysisReviewScreen extends StatefulWidget {
@@ -24,6 +29,15 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  
+  final _mistakeService = MistakeService();
+  final _knowledgeService = KnowledgeService();
+  
+  // 数据加载状态
+  bool _isLoading = true;
+  String? _error;
+  List<MistakeRecord>? _mistakeRecords;
+  List<KnowledgePoint>? _knowledgePoints;
   
   // 折叠状态
   bool _isKnowledgeExpanded = false;
@@ -57,12 +71,59 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
       curve: Curves.easeOutCubic,
     ));
     
+    // 加载数据
+    _loadData();
+    
     // 延迟启动动画，让UI先渲染完成
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _animationController.forward();
       }
     });
+  }
+  
+  /// 加载真实数据
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userProfile?.id;
+      
+      if (userId == null) {
+        setState(() {
+          _isLoading = false;
+          _error = '用户未登录';
+        });
+        return;
+      }
+      
+      // 初始化服务
+      final client = authProvider.authService.client;
+      _mistakeService.initialize(client);
+      _knowledgeService.initialize(client);
+      
+      // 获取错题记录和知识点
+      final results = await Future.wait([
+        _mistakeService.getUserMistakes(userId),
+        _knowledgeService.getUserKnowledgePoints(userId),
+      ]);
+      
+      setState(() {
+        _mistakeRecords = results[0] as List<MistakeRecord>;
+        _knowledgePoints = results[1] as List<KnowledgePoint>;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('加载数据失败: $e');
+      setState(() {
+        _isLoading = false;
+        _error = '加载数据失败：$e';
+      });
+    }
   }
 
   @override
@@ -136,9 +197,6 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
 
   @override
   Widget build(BuildContext context) {
-    // 模拟AI分析数据
-    final analysisData = _generateAnalysisData();
-
     return CupertinoPageScaffold(
       backgroundColor: AppColors.background,
       child: Column(
@@ -150,54 +208,179 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
           
           // 主内容区域
           Expanded(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // 主内容
-                SliverToBoxAdapter(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppConstants.spacingM),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 学习状态总览
-                            _buildOverviewCard(analysisData),
-                            
-                            const SizedBox(height: AppConstants.spacingM),
-                            
-                            // 知识点分布
-                            _buildKnowledgeDistributionCard(analysisData),
-                            
-                            const SizedBox(height: AppConstants.spacingM),
-                            
-                            // 错因分析
-                            _buildReasonAnalysisCard(analysisData),
-                            
-                            const SizedBox(height: AppConstants.spacingM),
-                            
-                            // AI 个性化建议
-                            _buildAISuggestionCard(analysisData),
-                            
-                            const SizedBox(height: AppConstants.spacingL),
-                            
-                            // 行动建议按钮组
-                            _buildActionButtons(),
-                            
-                            const SizedBox(height: AppConstants.spacingXL),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            child: _isLoading
+                ? _buildLoadingState()
+                : _error != null
+                    ? _buildErrorState()
+                    : _buildContent(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// 加载状态
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CupertinoActivityIndicator(radius: 16),
+          SizedBox(height: 16),
+          Text(
+            '正在分析你的错题...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
+      ),
+    );
+  }
+  
+  /// 错误状态
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              CupertinoIcons.exclamationmark_triangle,
+              size: 48,
+              color: AppColors.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _error ?? '加载失败',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            CupertinoButton.filled(
+              onPressed: _loadData,
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// 主内容
+  Widget _buildContent() {
+    // 如果没有错题记录，显示空状态
+    if (_mistakeRecords == null || _mistakeRecords!.isEmpty) {
+      return _buildEmptyState();
+    }
+    
+    // 生成基于真实数据的分析
+    final analysisData = _generateAnalysisData();
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        // 主内容
+        SliverToBoxAdapter(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Padding(
+                padding: const EdgeInsets.all(AppConstants.spacingM),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 学习状态总览
+                    _buildOverviewCard(analysisData),
+                    
+                    const SizedBox(height: AppConstants.spacingM),
+                    
+                    // 知识点分布
+                    _buildKnowledgeDistributionCard(analysisData),
+                    
+                    const SizedBox(height: AppConstants.spacingM),
+                    
+                    // 错因分析
+                    _buildReasonAnalysisCard(analysisData),
+                    
+                    const SizedBox(height: AppConstants.spacingM),
+                    
+                    // AI 个性化建议
+                    _buildAISuggestionCard(analysisData),
+                    
+                    const SizedBox(height: AppConstants.spacingL),
+                    
+                    // 行动建议按钮组
+                    _buildActionButtons(),
+                    
+                    const SizedBox(height: AppConstants.spacingXL),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  /// 空状态
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(50),
+                boxShadow: AppColors.coloredShadow(
+                  AppColors.primary,
+                  opacity: 0.3,
+                ),
+              ),
+              child: const Icon(
+                CupertinoIcons.chart_bar_circle,
+                size: 50,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              '还没有积累错题',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '记录错题后，AI会帮你分析学习情况\n提供个性化的学习建议',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            CupertinoButton.filled(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('去记录错题'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1000,93 +1183,101 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
     );
   }
 
-  // 生成模拟分析数据
+  // 生成基于真实数据的分析
   Map<String, dynamic> _generateAnalysisData() {
-    // 学科分布
-    final subjects = [
-      {
-        'name': '数学',
-        'count': 5,
-        'percentage': 33.3,
-        'color': const Color(0xFF3B82F6), // blue
-      },
-      {
-        'name': '物理',
-        'count': 4,
-        'percentage': 26.7,
-        'color': const Color(0xFF8B5CF6), // purple
-      },
-      {
-        'name': '化学',
-        'count': 3,
-        'percentage': 20.0,
-        'color': const Color(0xFFEF4444), // red
-      },
-      {
-        'name': '英语',
-        'count': 3,
-        'percentage': 20.0,
-        'color': const Color(0xFF10B981), // green
-      },
-    ];
-
-    // 错因分析
-    final reasons = [
-      {
-        'name': '概念理解不清',
-        'count': 6,
-        'percentage': 40.0,
-        'icon': CupertinoIcons.book_fill,
-        'color': const Color(0xFFEF4444),
-      },
-      {
-        'name': '思路断了',
-        'count': 4,
-        'percentage': 26.7,
-        'icon': CupertinoIcons.layers_alt_fill,
-        'color': const Color(0xFFF59E0B),
-      },
-      {
-        'name': '计算错误',
-        'count': 3,
-        'percentage': 20.0,
-        'icon': CupertinoIcons.number,
-        'color': const Color(0xFF8B5CF6),
-      },
-      {
-        'name': '粗心大意',
-        'count': 2,
-        'percentage': 13.3,
-        'icon': CupertinoIcons.exclamationmark_circle_fill,
-        'color': const Color(0xFF3B82F6),
-      },
-    ];
-
-    // AI建议
-    final suggestions = [
-      {
-        'title': '优先复习"概念理解不清"的错题',
-        'description': '这类问题占比最高（40%），建议先巩固基础概念，再进行变式训练',
-        'icon': CupertinoIcons.flag_fill,
-      },
-      {
-        'title': '数学薄弱点需要重点关注',
-        'description': '数学错题最多（5道），建议每天花15-20分钟专项突破',
-        'icon': CupertinoIcons.chart_bar_fill,
-      },
-      {
-        'title': '建立错题复盘习惯',
-        'description': '已经${widget.daysSinceLastReview}天没有复盘了，建议每2-3天复盘一次，效果更好',
-        'icon': CupertinoIcons.time,
-      },
-    ];
-
+    if (_mistakeRecords == null || _knowledgePoints == null) {
+      return {
+        'weakPoints': 0,
+        'suggestedTime': 0,
+        'subjectDistribution': [],
+        'mistakeReasons': [],
+        'suggestions': [],
+      };
+    }
+    
+    final records = _mistakeRecords!;
+    final totalCount = records.length;
+    
+    if (totalCount == 0) {
+      return {
+        'weakPoints': 0,
+        'suggestedTime': 0,
+        'subjectDistribution': [],
+        'mistakeReasons': [],
+        'suggestions': [],
+      };
+    }
+    
+    // 1. 统计学科分布
+    final subjectCounts = <String, int>{};
+    for (final record in records) {
+      if (record.subject != null) {
+        final displayName = record.subject!.displayName;
+        subjectCounts[displayName] = (subjectCounts[displayName] ?? 0) + 1;
+      }
+    }
+    
+    final subjects = subjectCounts.entries.map((entry) {
+      final subject = Subject.fromString(entry.key);
+      return {
+        'name': entry.key,
+        'count': entry.value,
+        'percentage': (entry.value / totalCount * 100),
+        'color': subject?.color ?? AppColors.subjectDefault,
+      };
+    }).toList()
+      ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+    
+    // 2. 统计错因分布
+    final reasonCounts = <String, int>{};
+    final reasonIcons = {
+      '概念理解不清': CupertinoIcons.book_fill,
+      '思路断了': CupertinoIcons.layers_alt_fill,
+      '计算错误': CupertinoIcons.number,
+      '粗心大意': CupertinoIcons.exclamationmark_circle_fill,
+      '知识盲区': CupertinoIcons.question_circle_fill,
+      '审题不清': CupertinoIcons.eye_fill,
+      '时间不够': CupertinoIcons.clock_fill,
+    };
+    final reasonColors = {
+      '概念理解不清': const Color(0xFFEF4444),
+      '思路断了': const Color(0xFFF59E0B),
+      '计算错误': const Color(0xFF8B5CF6),
+      '粗心大意': const Color(0xFF3B82F6),
+      '知识盲区': const Color(0xFFEC4899),
+      '审题不清': const Color(0xFF10B981),
+      '时间不够': const Color(0xFF14B8A6),
+    };
+    
+    for (final record in records) {
+      if (record.errorReason != null && record.errorReason!.isNotEmpty) {
+        reasonCounts[record.errorReason!] = (reasonCounts[record.errorReason!] ?? 0) + 1;
+      }
+    }
+    
+    final reasons = reasonCounts.entries.map((entry) {
+      return {
+        'name': entry.key,
+        'count': entry.value,
+        'percentage': (entry.value / totalCount * 100),
+        'icon': reasonIcons[entry.key] ?? CupertinoIcons.exclamationmark_circle,
+        'color': reasonColors[entry.key] ?? AppColors.textSecondary,
+      };
+    }).toList()
+      ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+    
+    // 3. 计算薄弱知识点数量（错题数大于等于2的知识点）
+    final weakPoints = _knowledgePoints!.where((kp) => kp.mistakeCount >= 2).length;
+    
+    // 4. 建议复习时间（根据错题数量）
+    final suggestedTime = (totalCount * 2).clamp(10, 60); // 每题2分钟，最少10分钟，最多60分钟
+    
     return {
-      'weakPoints': 4,
-      'suggestedTime': 30,
+      'weakPoints': weakPoints,
+      'suggestedTime': suggestedTime,
       'subjectDistribution': subjects,
       'mistakeReasons': reasons,
-      'suggestions': suggestions,
+      'suggestions': [], // AI建议暂时留空，后续再实现
     };
   }
 }

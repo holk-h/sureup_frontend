@@ -23,6 +23,7 @@ class ApiConfig {
   static const String mistakeRecordsCollectionId = 'mistake_records';
   static const String weeklyReportsCollectionId = 'weekly_reports';
   static const String knowledgePointsCollectionId = 'user_knowledge_points';  // 用户知识点树
+  static const String knowledgePointsLibraryCollectionId = 'knowledge_points_library';  // 学科模块库（公共）
   
   // 存储桶配置
   static const String imagesBucketId = 'images';

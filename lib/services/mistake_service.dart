@@ -12,7 +12,74 @@ class MistakeService {
   late Databases _databases;
   late Storage _storage;
   late Realtime _realtime;
+
+  // Caches
+  final Map<String, MistakeRecord> _mistakeRecordCache = {};
+  final Map<String, Question> _questionCache = {};
+  final Map<String, Map<String, String>> _moduleCache = {};
+  final Map<String, Map<String, String>> _knowledgePointCache = {};
+
+  /// 清空所有缓存
+  void clearCache() {
+    _mistakeRecordCache.clear();
+    _questionCache.clear();
+    _moduleCache.clear();
+    _knowledgePointCache.clear();
+  }
   
+  /// 预加载错题数据（包括题目、模块、知识点）到缓存
+  Future<void> preloadMistakeRecordData(List<String> recordIds) async {
+    // 1. 过滤掉已经缓存的记录ID
+    final idsToFetch = recordIds.where((id) => !_mistakeRecordCache.containsKey(id)).toList();
+    if (idsToFetch.isEmpty) {
+      return;
+    }
+
+    // 2. 并行获取所有 MistakeRecord
+    final futures = idsToFetch.map((id) => getMistakeRecord(id)).toList();
+    final records = await Future.wait(futures);
+    
+    final validRecords = records.where((r) => r != null).cast<MistakeRecord>().toList();
+    if (validRecords.isEmpty) {
+      return;
+    }
+
+    // 3. 收集所有需要加载的 questionId, moduleId, knowledgePointId
+    final questionIds = <String>{};
+    final moduleIds = <String>{};
+    final knowledgePointIds = <String>{};
+
+    for (final record in validRecords) {
+      if (record.questionId != null) {
+        questionIds.add(record.questionId!);
+      }
+    }
+
+    // 4. 并行获取所有 Question，然后收集其下的 module 和 knowledgePoint Ids
+    if (questionIds.isNotEmpty) {
+      final questions = await getQuestions(questionIds.toList());
+      for (final question in questions) {
+        moduleIds.addAll(question.moduleIds);
+        knowledgePointIds.addAll(question.knowledgePointIds);
+      }
+    }
+
+    // 5. 并行获取所有 Module 和 KnowledgePoint 信息
+    final preloadFutures = <Future>[];
+    if (moduleIds.isNotEmpty) {
+      preloadFutures.add(getModules(moduleIds.toList()));
+    }
+    if (knowledgePointIds.isNotEmpty) {
+      preloadFutures.add(getKnowledgePoints(knowledgePointIds.toList()));
+    }
+
+    if (preloadFutures.isNotEmpty) {
+      await Future.wait(preloadFutures);
+    }
+    
+    print('预加载完成: ${idsToFetch.length} 条记录');
+  }
+
   /// 初始化客户端
   void initialize(Client client) {
     _client = client;
@@ -137,27 +204,31 @@ class MistakeService {
     }
   }
 
-  /// 批量上传错题图片
+  /// 批量上传错题图片（并行）
   Future<List<String>> uploadMistakeImages(List<String> filePaths) async {
-    final fileIds = <String>[];
-    
-    for (final path in filePaths) {
+    // 并行上传所有图片
+    final uploadFutures = filePaths.map((path) async {
       try {
-        final fileId = await uploadMistakeImage(path);
-        fileIds.add(fileId);
+        return await uploadMistakeImage(path);
       } catch (e) {
         print('上传图片失败 ($path): $e');
-        // 如果部分图片上传失败，继续上传其他图片
+        return ''; // 返回空字符串表示上传失败
       }
-    }
+    }).toList();
     
+    final results = await Future.wait(uploadFutures);
+    
+    // 过滤掉失败的上传（空字符串）
+    final fileIds = results.where((id) => id.isNotEmpty).toList();
+    
+    print('成功上传 ${fileIds.length}/${filePaths.length} 张图片');
     return fileIds;
   }
 
   /// 创建错题记录（拍照录入）
   /// 返回创建的错题记录 ID
   /// subject 由 AI 自动识别，不需要手动传入
-  Future<String> createMistakeFromPhotos({
+  Future<List<String>> createMistakeFromPhotos({
     required String userId,
     required List<String> photoFilePaths,
     String? note,
@@ -173,37 +244,65 @@ class MistakeService {
       
       print('成功上传 ${fileIds.length} 张图片');
       
-      // 2. 创建错题记录
-      final data = {
-        'userId': userId,
-        'questionId': null, // 拍照录入时暂无题目ID，等待AI分析后填充
-        // subject 字段不再传入，由后端 AI 自动识别
-        'originalImageIds': fileIds, // 图片文件ID数组
-        'analysisStatus': 'pending', // 等待 AI 分析
-        'masteryStatus': 'notStarted',
-        'reviewCount': 0,
-        'correctCount': 0,
-        'moduleIds': [], // 空数组，等待AI分析后填充
-        'knowledgePointIds': [], // 空数组，等待AI分析后填充
-        if (note != null) 'note': note,
-      };
+      // 2. 为每张图片并行创建错题记录
+      print('开始并行创建 ${fileIds.length} 条错题记录...');
       
-      final document = await _databases.createDocument(
-        databaseId: ApiConfig.databaseId,
-        collectionId: ApiConfig.mistakeRecordsCollectionId,
-        documentId: ID.unique(),
-        data: data,
+      final createFutures = fileIds.map((fileId) {
+        final data = {
+          'userId': userId,
+          'questionId': null, // 拍照录入时暂无题目ID，等待AI分析后填充
+          // subject 字段不再传入，由后端 AI 自动识别
+          'originalImageId': fileId, // 单个图片文件ID
+          'analysisStatus': 'pending', // 等待 AI 分析
+          'masteryStatus': 'notStarted',
+          'reviewCount': 0,
+          'correctCount': 0,
+          'moduleIds': [], // 空数组，等待AI分析后填充
+          'knowledgePointIds': [], // 空数组，等待AI分析后填充
+          'errorReason': null, // 错因默认为空，由用户手动添加
+          if (note != null) 'note': note,
+        };
+        
+        return _databases.createDocument(
+          databaseId: ApiConfig.databaseId,
+          collectionId: ApiConfig.mistakeRecordsCollectionId,
+          documentId: ID.unique(),
+          data: data,
+        );
+      }).toList();
+      
+      // 并行等待所有创建完成
+      final results = await Future.wait(
+        createFutures,
+        eagerError: false, // 即使有错误也继续等待其他任务完成
       );
       
-      print('创建错题记录成功: ${document.$id}');
-      return document.$id;
+      // 收集成功创建的记录ID
+      final List<String> recordIds = [];
+      for (var i = 0; i < results.length; i++) {
+        try {
+          final document = results[i];
+          recordIds.add(document.$id);
+          print('成功创建错题记录 ${i + 1}/${fileIds.length}: ${document.$id}');
+        } catch (e) {
+          print('创建错题记录失败（跳过图片 ${fileIds[i]}）: $e');
+          // 继续处理其他图片
+        }
+      }
+      
+      if (recordIds.isEmpty) {
+        throw Exception('所有错题记录创建失败');
+      }
+      
+      print('成功创建 ${recordIds.length}/${fileIds.length} 条错题记录');
+      return recordIds;
     } catch (e) {
       print('创建错题记录失败: $e');
       rethrow;
     }
   }
 
-  /// 订阅错题记录的更新（监听 AI 分析进度）
+  /// 订阅单个错题记录的更新（监听 AI 分析进度）
   RealtimeSubscription subscribeMistakeAnalysis({
     required String mistakeRecordId,
     required void Function(MistakeRecord record) onUpdate,
@@ -238,8 +337,53 @@ class MistakeService {
     return subscription;
   }
 
+  /// 订阅多个错题记录的更新（使用单一 WebSocket 连接，符合 Appwrite 最佳实践）
+  /// 
+  /// 根据 Appwrite 文档：SDK 为所有订阅频道创建单个 WebSocket 连接
+  /// https://appwrite.io/docs/apis/realtime#limitations
+  RealtimeSubscription subscribeMultipleMistakes({
+    required List<String> channels,
+    required void Function(MistakeRecord record) onUpdate,
+    void Function(dynamic error)? onError,
+  }) {
+    print('📡 订阅 ${channels.length} 个频道 (单一 WebSocket 连接)');
+    
+    final subscription = _realtime.subscribe(channels);
+
+    subscription.stream.listen(
+      (event) {
+        // 监听 update 事件
+        if (event.events.any((e) => e.endsWith('update'))) {
+          try {
+            final record = MistakeRecord.fromJson({
+              'id': event.payload['\$id'],
+              'createdAt': event.payload['\$createdAt'],
+              ...event.payload,
+            });
+            onUpdate(record);
+          } catch (e) {
+            print('解析错题记录更新失败: $e');
+            onError?.call(e);
+          }
+        }
+      },
+      onError: (error) {
+        print('Realtime 订阅错误: $error');
+        onError?.call(error);
+      },
+    );
+
+    return subscription;
+  }
+
   /// 获取单个错题记录
   Future<MistakeRecord?> getMistakeRecord(String recordId) async {
+    // 1. 检查缓存
+    if (_mistakeRecordCache.containsKey(recordId)) {
+      return _mistakeRecordCache[recordId];
+    }
+    
+    // 2. 如果缓存中没有，从网络获取
     try {
       final document = await _databases.getDocument(
         databaseId: ApiConfig.databaseId,
@@ -247,11 +391,16 @@ class MistakeService {
         documentId: recordId,
       );
 
-      return MistakeRecord.fromJson({
+      final record = MistakeRecord.fromJson({
         'id': document.$id,
         'createdAt': document.$createdAt,
         ...document.data,
       });
+
+      // 3. 存入缓存
+      _mistakeRecordCache[recordId] = record;
+      
+      return record;
     } catch (e) {
       print('获取错题记录失败: $e');
       return null;
@@ -309,6 +458,12 @@ class MistakeService {
 
   /// 获取题目详情
   Future<Question?> getQuestion(String questionId) async {
+    // 1. 检查缓存
+    if (_questionCache.containsKey(questionId)) {
+      return _questionCache[questionId];
+    }
+    
+    // 2. 如果缓存中没有，从网络获取
     try {
       final document = await _databases.getDocument(
         databaseId: ApiConfig.databaseId,
@@ -316,15 +471,216 @@ class MistakeService {
         documentId: questionId,
       );
 
-      return Question.fromJson({
+      final question = Question.fromJson({
         'id': document.$id,
         'createdAt': document.$createdAt,
         ...document.data,
       });
+      
+      // 3. 存入缓存
+      _questionCache[questionId] = question;
+
+      return question;
     } catch (e) {
       print('获取题目详情失败: $e');
       return null;
     }
+  }
+
+  /// 批量获取题目详情
+  Future<List<Question>> getQuestions(List<String> questionIds) async {
+    final questions = <Question>[];
+    final idsToFetch = <String>[];
+
+    // 1. 从缓存中分离出已有的和需要获取的
+    for (final id in questionIds) {
+      if (_questionCache.containsKey(id)) {
+        questions.add(_questionCache[id]!);
+      } else {
+        idsToFetch.add(id);
+      }
+    }
+
+    // 2. 并行获取所有缺失的题目
+    if (idsToFetch.isNotEmpty) {
+      try {
+        final futures = idsToFetch.map((id) => getQuestion(id));
+        final fetchedQuestions = await Future.wait(futures);
+        
+        for (final question in fetchedQuestions) {
+          if (question != null) {
+            questions.add(question);
+            // getQuestion 方法内部已经做了缓存，这里无需重复添加
+          }
+        }
+      } catch (e) {
+        print('批量获取题目失败: $e');
+      }
+    }
+    
+    return questions;
+  }
+
+  /// 更新错题记录
+  Future<void> updateMistakeRecord({
+    required String recordId,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      await _databases.updateDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.mistakeRecordsCollectionId,
+        documentId: recordId,
+        data: data,
+      );
+      // 更新成功后，使缓存失效
+      _mistakeRecordCache.remove(recordId);
+    } catch (e) {
+      print('更新错题记录失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 更新错因
+  /// [errorReason] 可以是预定义的枚举 name（如 "conceptUnclear"）或自定义文本
+  Future<void> updateErrorReason(
+    String mistakeId, {
+    required String? errorReason,
+  }) async {
+    await updateMistakeRecord(
+      recordId: mistakeId,
+      data: {'errorReason': errorReason},
+    );
+    // updateMistakeRecord 内部已经清除了缓存
+  }
+
+  /// 删除错题记录
+  Future<void> deleteMistakeRecord(String recordId) async {
+    try {
+      await _databases.deleteDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.mistakeRecordsCollectionId,
+        documentId: recordId,
+      );
+      // 删除成功后，从缓存中移除
+      _mistakeRecordCache.remove(recordId);
+      _questionCache.removeWhere((key, value) => _mistakeRecordCache[recordId]?.questionId == key); // Not perfect but helps
+    } catch (e) {
+      print('删除错题记录失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取模块信息（从公共模块库）
+  Future<Map<String, String>> getModule(String moduleId) async {
+    if (_moduleCache.containsKey(moduleId)) {
+      return _moduleCache[moduleId]!;
+    }
+    
+    try {
+      final document = await _databases.getDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.knowledgePointsLibraryCollectionId,
+        documentId: moduleId,
+      );
+      
+      final moduleData = {
+        'id': document.$id,
+        'name': document.data['name'] as String? ?? '未知模块',
+        'description': document.data['description'] as String? ?? '',
+      };
+      
+      _moduleCache[moduleId] = moduleData;
+      return moduleData;
+    } catch (e) {
+      print('获取模块信息失败 ($moduleId): $e');
+      return {
+        'id': moduleId,
+        'name': '模块 ${moduleId.substring(0, 8)}...',
+        'description': '',
+      };
+    }
+  }
+
+  /// 批量获取模块信息
+  Future<Map<String, Map<String, String>>> getModules(List<String> moduleIds) async {
+    final modules = <String, Map<String, String>>{};
+    final idsToFetch = <String>[];
+    
+    for (final id in moduleIds) {
+      if (_moduleCache.containsKey(id)) {
+        modules[id] = _moduleCache[id]!;
+      } else {
+        idsToFetch.add(id);
+      }
+    }
+    
+    if (idsToFetch.isNotEmpty) {
+      final futures = idsToFetch.map((id) => getModule(id)).toList();
+      final results = await Future.wait(futures);
+      for (var i = 0; i < idsToFetch.length; i++) {
+        modules[idsToFetch[i]] = results[i];
+        // getModule 内部已经做了缓存
+      }
+    }
+    
+    return modules;
+  }
+
+  /// 获取知识点信息（从用户知识点）
+  Future<Map<String, String>> getKnowledgePoint(String knowledgePointId) async {
+    if (_knowledgePointCache.containsKey(knowledgePointId)) {
+      return _knowledgePointCache[knowledgePointId]!;
+    }
+    
+    try {
+      final document = await _databases.getDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.knowledgePointsCollectionId,
+        documentId: knowledgePointId,
+      );
+      
+      final kpData = {
+        'id': document.$id,
+        'name': document.data['name'] as String? ?? '未知知识点',
+        'moduleId': document.data['moduleId'] as String? ?? '',
+      };
+      
+      _knowledgePointCache[knowledgePointId] = kpData;
+      return kpData;
+    } catch (e) {
+      print('获取知识点信息失败 ($knowledgePointId): $e');
+      return {
+        'id': knowledgePointId,
+        'name': '知识点 ${knowledgePointId.substring(0, 8)}...',
+        'moduleId': '',
+      };
+    }
+  }
+
+  /// 批量获取知识点信息
+  Future<Map<String, Map<String, String>>> getKnowledgePoints(List<String> knowledgePointIds) async {
+    final knowledgePoints = <String, Map<String, String>>{};
+    final idsToFetch = <String>[];
+
+    for (final id in knowledgePointIds) {
+      if (_knowledgePointCache.containsKey(id)) {
+        knowledgePoints[id] = _knowledgePointCache[id]!;
+      } else {
+        idsToFetch.add(id);
+      }
+    }
+    
+    if (idsToFetch.isNotEmpty) {
+      final futures = idsToFetch.map((id) => getKnowledgePoint(id)).toList();
+      final results = await Future.wait(futures);
+      for (var i = 0; i < idsToFetch.length; i++) {
+        knowledgePoints[idsToFetch[i]] = results[i];
+        // getKnowledgePoint 内部已经做了缓存
+      }
+    }
+    
+    return knowledgePoints;
   }
 }
 

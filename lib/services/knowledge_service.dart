@@ -44,6 +44,95 @@ class KnowledgeService {
     }
   }
 
+  /// 获取某个学科下的所有模块（从 knowledge_points_library）
+  Future<List<Module>> getSubjectModules(String userId, Subject subject) async {
+    try {
+      // 1. 获取该学科的所有模块（从公共库）
+      // 注意：数据库中 subject 字段存储的是中文名称（如"数学"）
+      final modulesResponse = await _databases.listDocuments(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.knowledgePointsLibraryCollectionId,
+        queries: [
+          Query.equal('subject', subject.displayName), // 使用中文名称
+          Query.equal('isActive', true),
+          Query.orderAsc('order'),
+          Query.limit(100),
+        ],
+      );
+
+      // 2. 获取用户在该学科下的所有知识点
+      final userKnowledgePoints = await getUserKnowledgePoints(userId);
+      final subjectKnowledgePoints = userKnowledgePoints
+          .where((kp) => kp.subject == subject)
+          .toList();
+
+      // 3. 为每个模块统计知识点数量和错题数
+      final modules = <Module>[];
+      for (final doc in modulesResponse.documents) {
+        final moduleId = doc.$id;
+        
+        // 找到该模块下的所有知识点
+        final moduleKnowledgePoints = subjectKnowledgePoints
+            .where((kp) => kp.moduleId == moduleId)
+            .toList();
+        
+        // 计算统计数据
+        // 使用 Set 去重，因为同一道题可能关联多个知识点
+        final allQuestionIds = <String>{};
+        for (final kp in moduleKnowledgePoints) {
+          allQuestionIds.addAll(kp.questionIds);
+        }
+        final mistakeCount = allQuestionIds.length; // 错题数 = 去重后的题目数
+        final knowledgePointCount = moduleKnowledgePoints.length;
+
+        modules.add(Module.fromJson({
+          'id': doc.$id,
+          'createdAt': doc.$createdAt,
+          'updatedAt': doc.$updatedAt,
+          ...doc.data,
+          'mistakeCount': mistakeCount,
+          'knowledgePointCount': knowledgePointCount,
+        }));
+      }
+
+      return modules;
+    } catch (e) {
+      print('获取模块失败: $e');
+      return [];
+    }
+  }
+
+  /// 获取某个模块下的所有知识点
+  Future<List<KnowledgePoint>> getModuleKnowledgePoints(
+    String userId,
+    String moduleId,
+  ) async {
+    try {
+      final response = await _databases.listDocuments(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.knowledgePointsCollectionId,
+        queries: [
+          Query.equal('userId', userId),
+          Query.equal('moduleId', moduleId),
+          Query.orderDesc('lastMistakeAt'),
+          Query.limit(100),
+        ],
+      );
+
+      return response.documents
+          .map((doc) => KnowledgePoint.fromJson({
+                'id': doc.$id,
+                'createdAt': doc.$createdAt,
+                'updatedAt': doc.$updatedAt,
+                ...doc.data,
+              }))
+          .toList();
+    } catch (e) {
+      print('获取模块知识点失败: $e');
+      return [];
+    }
+  }
+
   /// 按学科分组知识点
   Map<String, List<KnowledgePoint>> groupBySubject(List<KnowledgePoint> points) {
     final Map<String, List<KnowledgePoint>> groups = {};

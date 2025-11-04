@@ -29,8 +29,17 @@ enum Difficulty {
 class Question {
   final String id;
   final Subject subject;
-  final String knowledgePointId; // 关联知识点ID
-  final String knowledgePointName; // 知识点名称（冗余，方便显示）
+  
+  // 支持多模块和多知识点
+  final List<String> moduleIds; // 关联模块ID列表（支持综合题）
+  final List<String> knowledgePointIds; // 关联知识点ID列表
+  
+  // 以下为兼容性保留（实际使用列表中的第一个）
+  @Deprecated('Use knowledgePointIds instead')
+  String get knowledgePointId => knowledgePointIds.isNotEmpty ? knowledgePointIds.first : '';
+  @Deprecated('Use knowledgePointNames instead')
+  String get knowledgePointName => ''; // 已移除存储，需从知识点服务获取
+  
   final QuestionType type;
   final Difficulty difficulty;
   
@@ -49,8 +58,8 @@ class Question {
   const Question({
     required this.id,
     required this.subject,
-    required this.knowledgePointId,
-    required this.knowledgePointName,
+    required this.moduleIds,
+    required this.knowledgePointIds,
     required this.type,
     required this.difficulty,
     required this.content,
@@ -63,12 +72,15 @@ class Question {
     this.metadata,
   });
 
+  /// 是否为综合题（跨多个模块）
+  bool get isComprehensive => moduleIds.length > 1;
+
   /// JSON 序列化
   Map<String, dynamic> toJson() => {
     'id': id,
     'subject': subject.name,
-    'knowledgePointId': knowledgePointId,
-    'knowledgePointName': knowledgePointName,
+    'moduleIds': moduleIds,
+    'knowledgePointIds': knowledgePointIds,
     'type': type.name,
     'difficulty': difficulty.level,
     'content': content,
@@ -82,11 +94,30 @@ class Question {
   };
 
   /// JSON 反序列化
-  factory Question.fromJson(Map<String, dynamic> json) => Question(
-    id: json['id'] as String,
+  factory Question.fromJson(Map<String, dynamic> json) {
+    // 处理 moduleIds - 支持旧格式
+    List<String> moduleIds = [];
+    if (json['moduleIds'] is List) {
+      moduleIds = (json['moduleIds'] as List<dynamic>).cast<String>();
+    } else if (json['moduleId'] != null) {
+      // 兼容旧的单个 moduleId 字段
+      moduleIds = [json['moduleId'] as String];
+    }
+    
+    // 处理 knowledgePointIds - 支持旧格式
+    List<String> knowledgePointIds = [];
+    if (json['knowledgePointIds'] is List) {
+      knowledgePointIds = (json['knowledgePointIds'] as List<dynamic>).cast<String>();
+    } else if (json['knowledgePointId'] != null) {
+      // 兼容旧的单个 knowledgePointId 字段
+      knowledgePointIds = [json['knowledgePointId'] as String];
+    }
+    
+    return Question(
+      id: json['id'] as String? ?? json['\$id'] as String,
     subject: Subject.values.byName(json['subject'] as String),
-    knowledgePointId: json['knowledgePointId'] as String,
-    knowledgePointName: json['knowledgePointName'] as String,
+      moduleIds: moduleIds,
+      knowledgePointIds: knowledgePointIds,
     type: QuestionType.values.byName(json['type'] as String),
     difficulty: Difficulty.values.firstWhere((d) => d.level == json['difficulty']),
     content: json['content'] as String,
@@ -94,19 +125,24 @@ class Question {
     answer: json['answer'] as String?,
     explanation: json['explanation'] as String?,
     imageIds: (json['imageIds'] as List<dynamic>?)?.cast<String>(),
-    createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : (json['\$createdAt'] != null
+              ? DateTime.parse(json['\$createdAt'] as String)
+              : DateTime.now()),
     updatedAt: json['updatedAt'] != null 
         ? DateTime.parse(json['updatedAt'] as String) 
         : null,
     metadata: json['metadata'] as Map<String, dynamic>?,
   );
+  }
 
   /// 复制并更新
   Question copyWith({
     String? id,
     Subject? subject,
-    String? knowledgePointId,
-    String? knowledgePointName,
+    List<String>? moduleIds,
+    List<String>? knowledgePointIds,
     QuestionType? type,
     Difficulty? difficulty,
     String? content,
@@ -120,8 +156,8 @@ class Question {
   }) => Question(
     id: id ?? this.id,
     subject: subject ?? this.subject,
-    knowledgePointId: knowledgePointId ?? this.knowledgePointId,
-    knowledgePointName: knowledgePointName ?? this.knowledgePointName,
+    moduleIds: moduleIds ?? this.moduleIds,
+    knowledgePointIds: knowledgePointIds ?? this.knowledgePointIds,
     type: type ?? this.type,
     difficulty: difficulty ?? this.difficulty,
     content: content ?? this.content,
