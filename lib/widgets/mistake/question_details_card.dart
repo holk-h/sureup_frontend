@@ -60,8 +60,9 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
       vsync: this,
     );
 
-    // 计算需要动画的项目数量（题目、选项、答案区、错因、模块、知识点）
-    final itemCount = 6;
+    // 计算需要动画的项目数量（题目、选项、答案区、错因、模块、知识点、解题提示）
+    // 使用更大的数量以覆盖所有可能的组合
+    final itemCount = 10;
     _itemAnimations = List.generate(itemCount, (index) {
       final start = index * 0.1;
       final end = start + 0.6;
@@ -111,6 +112,10 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
   }
 
   Widget _buildAnimatedItem(int index, Widget child) {
+    // 安全检查：如果索引超出范围，返回原始 widget
+    if (index >= _itemAnimations.length) {
+      return child;
+    }
     return FadeTransition(
       opacity: _itemAnimations[index],
       child: SlideTransition(position: _slideAnimations[index], child: child),
@@ -182,11 +187,12 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                 children: [
                   // 添加备注
                   Expanded(
-                    flex: 65,
+                    flex: 50,
                     child: _buildSection(
                       title: '错题备注',
                       icon: CupertinoIcons.pencil,
                       iconColor: AppColors.primary,
+                      isEditable: true,
                       child: MistakeNoteSection(
                         mistakeRecord: widget.mistakeRecord,
                       ),
@@ -197,11 +203,12 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
 
                   // 正确答案
                   Expanded(
-                    flex: 35,
+                    flex: 50,
                     child: _buildSection(
                       title: '正确答案',
                       icon: CupertinoIcons.checkmark_seal_fill,
                       iconColor: AppColors.success,
+                      isEditable: true,
                       child: _buildAnswerWidget(),
                     ),
                   ),
@@ -219,6 +226,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
               title: '错因分析',
               icon: CupertinoIcons.exclamationmark_triangle_fill,
               iconColor: AppColors.error,
+              isEditable: true,
               child: ErrorReasonSelector(
                 mistakeRecord: widget.mistakeRecord,
                 onErrorReasonChanged: widget.onErrorReasonChanged,
@@ -239,7 +247,16 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
 
           // 知识点 (索引 5)
           if (widget.question.knowledgePointIds.isNotEmpty)
+            Column(
+              children: [
             _buildAnimatedItem(animationIndex++, _buildKnowledgePointSection()),
+                const SizedBox(height: AppConstants.spacingM),
+              ],
+            ),
+
+          // 解题提示 (索引 6)
+          if (widget.question.solvingHint != null && widget.question.solvingHint!.isNotEmpty)
+            _buildAnimatedItem(animationIndex++, _buildSolvingHintSection()),
         ],
       ),
     );
@@ -308,15 +325,26 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
     if (isChoiceQuestion) {
       final optionCount = widget.question.options!.length;
 
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.center,
-        children: List.generate(optionCount, (index) {
+      return Column(
+        children: List.generate((optionCount / 2).ceil(), (rowIndex) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: rowIndex < (optionCount / 2).ceil() - 1 ? 8 : 0),
+            child: Row(
+              children: [
+                for (int colIndex = 0; colIndex < 2; colIndex++) ...[
+                  if (colIndex > 0) const SizedBox(width: 8),
+                  Builder(
+                    builder: (context) {
+                      final index = rowIndex * 2 + colIndex;
+                      if (index >= optionCount) {
+                        return const Expanded(child: SizedBox());
+                      }
+                      
           final label = String.fromCharCode(65 + index); // A, B, C, D...
           final isSelected = _selectedAnswer == label;
 
-          return GestureDetector(
+                      return Expanded(
+                        child: GestureDetector(
             onTap: () async {
               // 添加触觉反馈
               HapticFeedback.selectionClick();
@@ -343,13 +371,12 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
               }
             },
             child: Container(
-              width: 36,
               height: 36,
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.success
                     : AppColors.success.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: AppColors.success.withValues(
                     alpha: isSelected ? 1.0 : 0.3,
@@ -369,90 +396,26 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                   ),
                 ),
               ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ],
             ),
           );
         }),
       );
     }
 
-    // 非选择题：已有答案显示答案，否则显示添加按钮
-    if (widget.question.answer != null && widget.question.answer!.isNotEmpty) {
-      return GestureDetector(
-        onTap: () => _showEditAnswerDialog(),
-        child: Center(
-          child: Text(
-            widget.question.answer!,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.success,
-              height: 1.6,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: () => _showEditAnswerDialog(),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-          border: Border.all(
-            color: AppColors.success.withValues(alpha: 0.2),
-            width: 1.5,
-          ),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              CupertinoIcons.plus_circle,
-              color: AppColors.success,
-              size: 16,
-            ),
-            SizedBox(width: 4),
-            Text(
-              '添加',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.success,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditAnswerDialog() {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => EditAnswerDialog(
-        initialAnswer: widget.question.answer,
-        question: widget.question,
-        onSave: (answer) async {
-          try {
-            await MistakeService().updateQuestionAnswer(
-              widget.question.id,
-              answer,
-            );
-            // 更新本地状态
-            if (mounted) {
-              setState(() {
-                _selectedAnswer = answer;
-              });
-            }
-          } catch (e) {
-            print('更新答案失败: $e');
-          }
-        },
-      ),
+    return _NonChoiceAnswerDetailCard(
+      question: widget.question,
+      onAnswerChanged: (answer) {
+        setState(() {
+          _selectedAnswer = answer;
+        });
+      },
     );
   }
 
@@ -522,6 +485,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
 
   Widget _buildKnowledgePointSection() {
     final kpIds = widget.question.knowledgePointIds;
+    final primaryKpIds = widget.question.primaryKnowledgePointIds ?? [];
 
     return _buildSection(
       title: '相关知识点 (${kpIds.length})',
@@ -532,27 +496,87 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
         runSpacing: 8,
         children: kpIds.map((kpId) {
           final kpName = widget.knowledgePointsInfo[kpId]?['name'] ?? '加载中...';
+          final isPrimary = primaryKpIds.contains(kpId);
 
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.1),
+              color: isPrimary 
+                  ? AppColors.warning.withValues(alpha: 0.15)
+                  : AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.3),
-                width: 1,
+                color: isPrimary
+                    ? AppColors.warning.withValues(alpha: 0.5)
+                    : AppColors.accent.withValues(alpha: 0.3),
+                width: isPrimary ? 1.5 : 1,
               ),
             ),
-            child: Text(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isPrimary)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Icon(
+                      CupertinoIcons.star_fill,
+                      size: 12,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                Text(
               kpName,
-              style: const TextStyle(
+                  style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.accent,
+                    fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
+                    color: isPrimary ? AppColors.warning : AppColors.accent,
+                  ),
               ),
+              ],
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSolvingHintSection() {
+    return _buildSection(
+      title: '💡 解题提示',
+      icon: CupertinoIcons.lightbulb_fill,
+      iconColor: AppColors.warning,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              CupertinoIcons.star_circle_fill,
+              size: 20,
+              color: AppColors.warning,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.question.solvingHint!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -562,6 +586,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
     required IconData icon,
     Color? iconColor,
     required Widget child,
+    bool isEditable = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacingL),
@@ -586,6 +611,24 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                   color: AppColors.textPrimary,
                 ),
               ),
+              if (isEditable) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    '可编辑',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -594,4 +637,208 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
       ),
     );
   }
+}
+
+class _NonChoiceAnswerDetailCard extends StatefulWidget {
+  final Question question;
+  final ValueChanged<String> onAnswerChanged;
+
+  const _NonChoiceAnswerDetailCard({
+    required this.question,
+    required this.onAnswerChanged,
+  });
+
+  @override
+  State<_NonChoiceAnswerDetailCard> createState() => _NonChoiceAnswerDetailCardState();
+}
+
+class _NonChoiceAnswerDetailCardState extends State<_NonChoiceAnswerDetailCard> {
+  String? _answer;
+  bool _isSaving = false;
+
+  bool get _hasAnswer => _answer != null && _answer!.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _answer = widget.question.answer;
+  }
+
+  @override
+  void didUpdateWidget(covariant _NonChoiceAnswerDetailCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.question.answer != widget.question.answer) {
+      _answer = widget.question.answer;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _isSaving ? null : _handleEditAnswer,
+      child: Stack(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 72),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+            decoration: BoxDecoration(
+              color: _hasAnswer
+                  ? AppColors.success.withValues(alpha: 0.06)
+                  : AppColors.success.withValues(alpha: 0.02),
+              borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+              border: Border.all(
+                color: AppColors.success.withValues(
+                  alpha: _hasAnswer ? 0.28 : 0.16,
+                ),
+                width: 1.4,
+              ),
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: _hasAnswer
+                  ? KeyedSubtree(
+                      key: const ValueKey('answer-filled'),
+                      child: _AnswerDetailFilledContent(
+                        answer: _answer!.trim(),
+                      ),
+                    )
+                  : const KeyedSubtree(
+                      key: ValueKey('answer-empty'),
+                      child: _AnswerDetailEmptyContent(),
+                    ),
+            ),
+          ),
+          if (_isSaving)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey5.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.radiusMedium,
+                    ),
+                  ),
+                  child: const Center(child: CupertinoActivityIndicator()),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleEditAnswer() async {
+    final result = await showCupertinoDialog<String>(
+      context: context,
+      builder: (context) => EditAnswerDialog(
+        initialAnswer: _answer,
+        question: widget.question,
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    final trimmed = result.trim();
+    final previousAnswer = _answer;
+    final previousNormalized = (previousAnswer ?? '').trim();
+
+    if (previousNormalized == trimmed) {
+      return;
+    }
+
+    setState(() {
+      _answer = trimmed;
+      _isSaving = true;
+    });
+
+    try {
+      await MistakeService().updateQuestionAnswer(
+        widget.question.id,
+        trimmed,
+      );
+      if (mounted) {
+        widget.onAnswerChanged(trimmed);
+      }
+    } catch (e) {
+      print('更新答案失败: $e');
+      if (mounted) {
+        setState(() {
+          _answer = previousAnswer;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+}
+
+class _AnswerDetailEmptyContent extends StatelessWidget {
+  const _AnswerDetailEmptyContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(CupertinoIcons.plus_circle, color: AppColors.success, size: 18),
+          SizedBox(width: 6),
+          Text(
+            '点击添加答案',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.success,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnswerDetailFilledContent extends StatelessWidget {
+  final String answer;
+
+  const _AnswerDetailFilledContent({required this.answer});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MathMarkdownText(
+          text: answer,
+          style: const TextStyle(
+            fontSize: 15,
+            color: AppColors.textSecondary,
+            height: 1.55,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '点击编辑正确答案',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.success.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
 }

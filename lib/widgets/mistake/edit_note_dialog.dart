@@ -4,12 +4,12 @@ import '../../config/colors.dart';
 /// 编辑备注对话框
 class EditNoteDialog extends StatefulWidget {
   final String? initialNote;
-  final Function(String) onSave;
+  final ValueChanged<String>? onSave;
 
   const EditNoteDialog({
     super.key,
     this.initialNote,
-    required this.onSave,
+    this.onSave,
   });
 
   @override
@@ -39,37 +39,38 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final maxHeight = mediaQuery.size.height; // 最大高度为屏幕高度的 65%
-    
+    final trimmed = _controller.text.trim();
+    final bool canSave = _isChanged && trimmed.isNotEmpty;
+
     return CupertinoAlertDialog(
-      // title: const Text('编辑备注'),
+      title: const Text('编辑备注'),
       content: Padding(
-        padding: const EdgeInsets.only(top: 20),
+        padding: const EdgeInsets.only(top: 12),
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: maxHeight,
+          constraints: const BoxConstraints(
+            minHeight: 100,
+            maxHeight: 220,
           ),
-          child: SingleChildScrollView(
-            child: CupertinoTextField(
-              controller: _controller,
-              placeholder: '记录解题思路、易错点等',
-              maxLines: null,
-              minLines: 1,
-              autofocus: true,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textPrimary,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.cardBackground,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.divider,
-                  width: 1,
+          child: CupertinoScrollbar(
+            child: SingleChildScrollView(
+              child: CupertinoTextField(
+                controller: _controller,
+                placeholder: '记录解题思路、易错点等',
+                maxLines: 6,
+                minLines: 3,
+                autofocus: true,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textPrimary,
+                  height: 1.4,
                 ),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.divider, width: 1),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               ),
-              padding: const EdgeInsets.all(12),
             ),
           ),
         ),
@@ -80,13 +81,13 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
           child: const Text('取消'),
         ),
         CupertinoDialogAction(
-          onPressed: _isChanged
+          isDefaultAction: true,
+          onPressed: canSave
               ? () {
-                  widget.onSave(_controller.text.trim());
-                  Navigator.of(context).pop();
+                  widget.onSave?.call(trimmed);
+                  Navigator.of(context).pop(trimmed);
                 }
               : null,
-          isDefaultAction: true,
           child: const Text('保存'),
         ),
       ],

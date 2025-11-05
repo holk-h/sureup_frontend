@@ -91,16 +91,10 @@ class _MistakeNoteSectionState extends State<MistakeNoteSection> {
   }
 
   Future<void> _handleEditNote() async {
-    String? result;
-    
-    await showCupertinoDialog<void>(
+    final result = await showCupertinoDialog<String>(
       context: context,
       builder: (context) => EditNoteDialog(
         initialNote: _note,
-        onSave: (note) {
-          // 保存结果，不要在这里 pop，dialog 内部会自己 pop
-          result = note;
-        },
       ),
     );
 
@@ -108,7 +102,7 @@ class _MistakeNoteSectionState extends State<MistakeNoteSection> {
       return;
     }
 
-    final trimmed = result!.trim();
+    final trimmed = result.trim();
     final previousNote = _note;
     final previousNormalized = (previousNote ?? '').trim();
 

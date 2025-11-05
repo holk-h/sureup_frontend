@@ -161,7 +161,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '${_currentQuestion.subject.displayName} · ${_currentQuestion.knowledgePointName}',
+              '${_currentQuestion.subject?.displayName ?? '未知学科'} · ${_currentQuestion.knowledgePointName}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.primary,

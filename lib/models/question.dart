@@ -33,6 +33,7 @@ class Question {
   // 支持多模块和多知识点
   final List<String> moduleIds; // 关联模块ID列表（支持综合题）
   final List<String> knowledgePointIds; // 关联知识点ID列表
+  final List<String>? primaryKnowledgePointIds; // 主要考点ID列表
   
   // 以下为兼容性保留（实际使用列表中的第一个）
   @Deprecated('Use knowledgePointIds instead')
@@ -50,6 +51,10 @@ class Question {
   final String? explanation; // 解析
   final List<String>? imageIds; // 题目图片文件ID（支持多张，存储在bucket中）
   
+  // AI增强字段
+  final String? importance; // 知识点重要度 (high/basic/normal)
+  final String? solvingHint; // 解题提示
+  
   // 元数据
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -60,6 +65,7 @@ class Question {
     this.subject, // 可选，OCR 阶段可能为 null
     required this.moduleIds,
     required this.knowledgePointIds,
+    this.primaryKnowledgePointIds,
     required this.type,
     required this.difficulty,
     required this.content,
@@ -67,6 +73,8 @@ class Question {
     this.answer,
     this.explanation,
     this.imageIds,
+    this.importance,
+    this.solvingHint,
     required this.createdAt,
     this.updatedAt,
     this.metadata,
@@ -81,6 +89,7 @@ class Question {
     'subject': subject?.name,
     'moduleIds': moduleIds,
     'knowledgePointIds': knowledgePointIds,
+    'primaryKnowledgePointIds': primaryKnowledgePointIds,
     'type': type.name,
     'difficulty': difficulty.level,
     'content': content,
@@ -88,6 +97,8 @@ class Question {
     'answer': answer,
     'explanation': explanation,
     'imageIds': imageIds,
+    'importance': importance,
+    'solvingHint': solvingHint,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
     'metadata': metadata,
@@ -130,6 +141,7 @@ class Question {
       subject: subject,
       moduleIds: moduleIds,
       knowledgePointIds: knowledgePointIds,
+      primaryKnowledgePointIds: (json['primaryKnowledgePointIds'] as List<dynamic>?)?.cast<String>(),
     type: QuestionType.values.byName(json['type'] as String),
     difficulty: Difficulty.values.firstWhere((d) => d.level == json['difficulty']),
     content: json['content'] as String,
@@ -137,6 +149,8 @@ class Question {
     answer: json['answer'] as String?,
     explanation: json['explanation'] as String?,
     imageIds: (json['imageIds'] as List<dynamic>?)?.cast<String>(),
+      importance: json['importance'] as String?,
+      solvingHint: json['solvingHint'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : (json['\$createdAt'] != null
@@ -155,6 +169,7 @@ class Question {
     Subject? subject,
     List<String>? moduleIds,
     List<String>? knowledgePointIds,
+    List<String>? primaryKnowledgePointIds,
     QuestionType? type,
     Difficulty? difficulty,
     String? content,
@@ -162,6 +177,8 @@ class Question {
     String? answer,
     String? explanation,
     List<String>? imageIds,
+    String? importance,
+    String? solvingHint,
     DateTime? createdAt,
     DateTime? updatedAt,
     Map<String, dynamic>? metadata,
@@ -170,6 +187,7 @@ class Question {
     subject: subject ?? this.subject,
     moduleIds: moduleIds ?? this.moduleIds,
     knowledgePointIds: knowledgePointIds ?? this.knowledgePointIds,
+    primaryKnowledgePointIds: primaryKnowledgePointIds ?? this.primaryKnowledgePointIds,
     type: type ?? this.type,
     difficulty: difficulty ?? this.difficulty,
     content: content ?? this.content,
@@ -177,6 +195,8 @@ class Question {
     answer: answer ?? this.answer,
     explanation: explanation ?? this.explanation,
     imageIds: imageIds ?? this.imageIds,
+    importance: importance ?? this.importance,
+    solvingHint: solvingHint ?? this.solvingHint,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     metadata: metadata ?? this.metadata,

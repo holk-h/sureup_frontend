@@ -38,6 +38,7 @@ class MistakeRecord {
   final String? errorReason; // 错因（可以是预定义的枚举值或自定义文本）
   final String? note; // 用户备注
   final String? userAnswer; // 用户的错误答案
+  final bool isImportant; // 用户标记为重要
   
   // AI 分析相关
   final AnalysisStatus analysisStatus; // 分析状态
@@ -67,6 +68,7 @@ class MistakeRecord {
     this.errorReason,
     this.note,
     this.userAnswer,
+    this.isImportant = false,
     this.analysisStatus = AnalysisStatus.pending,
     this.analysisError,
     this.analyzedAt,
@@ -122,6 +124,7 @@ class MistakeRecord {
     'errorReason': errorReason,
     'note': note,
     'userAnswer': userAnswer,
+    'isImportant': isImportant,
     'analysisStatus': analysisStatus.name,
     'analysisError': analysisError,
     'analyzedAt': analyzedAt?.toIso8601String(),
@@ -169,6 +172,7 @@ class MistakeRecord {
       errorReason: errorReasonValue,
       note: json['note'] as String?,
       userAnswer: json['userAnswer'] as String?,
+      isImportant: json['isImportant'] as bool? ?? false,
       analysisStatus: json['analysisStatus'] != null
           ? AnalysisStatus.values.byName(json['analysisStatus'] as String)
           : AnalysisStatus.pending,
@@ -207,6 +211,7 @@ class MistakeRecord {
     String? errorReason,
     String? note,
     String? userAnswer,
+    bool? isImportant,
     AnalysisStatus? analysisStatus,
     String? analysisError,
     DateTime? analyzedAt,
@@ -227,6 +232,7 @@ class MistakeRecord {
     errorReason: errorReason ?? this.errorReason,
     note: note ?? this.note,
     userAnswer: userAnswer ?? this.userAnswer,
+    isImportant: isImportant ?? this.isImportant,
     analysisStatus: analysisStatus ?? this.analysisStatus,
     analysisError: analysisError ?? this.analysisError,
     analyzedAt: analyzedAt ?? this.analyzedAt,
