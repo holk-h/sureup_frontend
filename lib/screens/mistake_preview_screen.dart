@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
@@ -157,7 +156,7 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
     
     // 15秒进度条动画控制器
     _progressController = AnimationController(
-      duration: const Duration(seconds: 15),
+      duration: const Duration(seconds: 30),
       vsync: this,
     );
     
@@ -275,6 +274,9 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
       },
       onUpdateErrorReason: (MistakeRecord record, String errorReason) async {
         await _previewService.updateErrorReason(record.id, errorReason);
+      },
+      onToggleImportant: (String recordId, bool isImportant) async {
+        await _previewService.updateIsImportant(recordId, isImportant);
       },
       pulseAnimation: _pulseAnimation,
       progressAnimation: _progressAnimation,
@@ -451,6 +453,7 @@ class _MistakeDetailPage extends StatefulWidget {
   final Map<String, Map<String, String>> knowledgePointsInfo;
   final VoidCallback onRetry;
   final Future<void> Function(MistakeRecord, String) onUpdateErrorReason;
+  final Future<void> Function(String, bool) onToggleImportant;
   final Animation<double> pulseAnimation;
   final Animation<double> progressAnimation;
   final void Function(String) onStartProgress;
@@ -467,6 +470,7 @@ class _MistakeDetailPage extends StatefulWidget {
     required this.knowledgePointsInfo,
     required this.onRetry,
     required this.onUpdateErrorReason,
+    required this.onToggleImportant,
     required this.pulseAnimation,
     required this.progressAnimation,
     required this.onStartProgress,
@@ -582,6 +586,11 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
+        // 学科标签和重点标记
+        SliverToBoxAdapter(
+          child: _buildTopBar(widget.mistakeRecord!),
+        ),
+        
         // 原始图片
         SliverToBoxAdapter(
           child: OriginalImageWidget(
@@ -674,8 +683,118 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
     );
   }
 
+  // 构建顶部栏：左边学科标签，右边重点标记
+  Widget _buildTopBar(MistakeRecord mistakeRecord) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppConstants.spacingM,
+        AppConstants.spacingM,
+        AppConstants.spacingM,
+        0, // 下边距为0，让图片的margin来控制间距
+      ),
+      child: Row(
+        children: [
+          // 左边：学科标签
+          if (mistakeRecord.subject != null)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: mistakeRecord.subject!.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20), // 胶囊状，和右边按钮一致
+                border: Border.all(
+                  color: mistakeRecord.subject!.color.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    mistakeRecord.subject!.icon,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    mistakeRecord.subject!.displayName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: mistakeRecord.subject!.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
+          const Spacer(),
+          
+          // 右边：标记为重点
+          GestureDetector(
+            onTap: () => _toggleImportant(mistakeRecord),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: mistakeRecord.isImportant 
+                    ? AppColors.warning.withValues(alpha: 0.15)
+                    : AppColors.textTertiary.withValues(alpha: 0.08), // 未标记时灰色背景
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: mistakeRecord.isImportant 
+                      ? AppColors.warning.withValues(alpha: 0.4)
+                      : AppColors.divider, // 未标记时灰色边框
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    mistakeRecord.isImportant 
+                        ? CupertinoIcons.star_fill 
+                        : CupertinoIcons.star,
+                    size: 16,
+                    color: mistakeRecord.isImportant 
+                        ? AppColors.warning 
+                        : AppColors.textTertiary, // 未标记时灰色图标
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '标记为重点',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: mistakeRecord.isImportant 
+                          ? AppColors.warning 
+                          : AppColors.textTertiary, // 未标记时灰色文字
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-
+  // 切换重要标记
+  Future<void> _toggleImportant(MistakeRecord mistakeRecord) async {
+    final newImportantStatus = !mistakeRecord.isImportant;
+    
+    try {
+      // 调用回调更新
+      await widget.onToggleImportant(widget.recordId, newImportantStatus);
+      
+      // 服务内部会发送更新事件，UI 会自动刷新，并触发震动反馈
+    } catch (e) {
+      // 错误已在服务层处理
+      print('切换重要标记失败: $e');
+    }
+  }
 }
-
-

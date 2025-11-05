@@ -559,7 +559,7 @@ class _CameraScreenState extends State<CameraScreen> {
                             horizontal: 12,
                             vertical: 6,
                           ),
-                          onPressed: () => _editPhoto(index),
+                          onPressed: () => _editPhoto(index), minimumSize: Size(0, 0),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -578,7 +578,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
                             ],
-                ), minimumSize: Size(0, 0),
+                ),
               ),
 
                         const SizedBox(width: 4),
@@ -589,7 +589,7 @@ class _CameraScreenState extends State<CameraScreen> {
                             horizontal: 12,
                             vertical: 6,
                           ),
-                          onPressed: () => _confirmDeletePhoto(index),
+                          onPressed: () => _confirmDeletePhoto(index), minimumSize: Size(0, 0),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -608,7 +608,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                 ),
                               ),
                             ],
-                    ), minimumSize: Size(0, 0),
+                    ),
                   ),
                       ],
                     ),

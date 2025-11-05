@@ -344,6 +344,27 @@ class MistakePreviewService {
     }
   }
   
+  /// 更新是否重要
+  Future<void> updateIsImportant(String recordId, bool isImportant) async {
+    try {
+      await _mistakeService.updateMistakeRecord(
+        recordId: recordId,
+        data: {'isImportant': isImportant},
+      );
+      
+      // 更新本地缓存
+      final record = _cachedRecords[recordId];
+      if (record != null) {
+        final updatedRecord = record.copyWith(isImportant: isImportant);
+        _cachedRecords[recordId] = updatedRecord;
+        _recordUpdateController.add(updatedRecord);
+      }
+    } catch (e) {
+      _errorController.add('更新重要标记失败: $e');
+      rethrow;
+    }
+  }
+  
   /// 重新分析
   Future<void> retryAnalysis(String recordId) async {
     try {
