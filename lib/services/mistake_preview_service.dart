@@ -387,8 +387,44 @@ class MistakePreviewService {
         _cachedRecords[recordId] = updatedRecord;
         _recordUpdateController.add(updatedRecord);
       }
+      
+      // 如果订阅已关闭，重新建立
+      _ensureSubscriptionActive([recordId]);
     } catch (e) {
       _errorController.add('重新分析失败: $e');
+    }
+  }
+  
+  /// 确保 Realtime 订阅处于活跃状态
+  void _ensureSubscriptionActive(List<String> recordIds) {
+    if (_realtimeSubscription == null && recordIds.isNotEmpty) {
+      print('🔄 Realtime 订阅已关闭，重新建立订阅');
+      setupRealtimeSubscription(recordIds);
+    }
+  }
+  
+  /// 反馈 OCR 错误并重新分析
+  Future<void> reportOcrError(String recordId, String wrongReason) async {
+    try {
+      await _mistakeService.reportOcrError(recordId, wrongReason);
+      
+      // 更新本地缓存
+      final record = _cachedRecords[recordId];
+      if (record != null) {
+        final updatedRecord = record.copyWith(
+          analysisStatus: AnalysisStatus.pending,
+          wrongReason: wrongReason,
+          analysisError: null,
+        );
+        _cachedRecords[recordId] = updatedRecord;
+        _recordUpdateController.add(updatedRecord);
+      }
+      
+      // 如果订阅已关闭，重新建立
+      _ensureSubscriptionActive([recordId]);
+    } catch (e) {
+      _errorController.add('反馈 OCR 错误失败: $e');
+      rethrow;
     }
   }
   

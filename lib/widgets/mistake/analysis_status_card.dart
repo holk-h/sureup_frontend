@@ -200,6 +200,32 @@ class AnalysisStatusCard extends StatelessWidget {
           ),
         );
 
+      case AnalysisStatus.ocrWrong:
+        return Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.warning.withValues(alpha: 0.15),
+            border: Border.all(
+              color: AppColors.warning,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.warning.withValues(alpha: 0.2),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            CupertinoIcons.exclamationmark_triangle,
+            size: 40,
+            color: AppColors.warning,
+          ),
+        );
+
       case AnalysisStatus.completed:
         return Container(
           width: 80,
@@ -272,6 +298,8 @@ class AnalysisStatusCard extends StatelessWidget {
       case AnalysisStatus.ocrOK:
       case AnalysisStatus.processing:
         return AppColors.primary;
+      case AnalysisStatus.ocrWrong:
+        return AppColors.warning;
       case AnalysisStatus.completed:
         return AppColors.success;
       case AnalysisStatus.failed:
@@ -287,6 +315,8 @@ class AnalysisStatusCard extends StatelessWidget {
         return 'AI 深度分析中';
       case AnalysisStatus.processing:
         return 'AI 分析中';
+      case AnalysisStatus.ocrWrong:
+        return '识别有误';
       case AnalysisStatus.completed:
         return '分析完成';
       case AnalysisStatus.failed:
@@ -301,6 +331,8 @@ class AnalysisStatusCard extends StatelessWidget {
         return '分析过程大约需要 10-15 秒，请稍候';
       case AnalysisStatus.ocrOK:
         return '正在分析答案、知识点等信息，请稍候';
+      case AnalysisStatus.ocrWrong:
+        return mistakeRecord.wrongReason ?? '已反馈识别错误，等待重新处理';
       case AnalysisStatus.completed:
         return 'AI 已完成分析，查看下方详情';
       case AnalysisStatus.failed:

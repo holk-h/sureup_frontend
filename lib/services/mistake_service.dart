@@ -431,6 +431,28 @@ class MistakeService {
     }
   }
 
+  /// 反馈 OCR 识别错误（保存反馈并重新触发分析）
+  Future<void> reportOcrError(String recordId, String wrongReason) async {
+    try {
+      await _databases.updateDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.mistakeRecordsCollectionId,
+        documentId: recordId,
+        data: {
+          'analysisStatus': 'pending',  // 直接触发重新分析
+          'wrongReason': wrongReason,   // 保存用户反馈
+          'analysisError': null,        // 清除之前的错误
+        },
+      );
+      // 更新成功后，使缓存失效
+      _mistakeRecordCache.remove(recordId);
+      print('已反馈 OCR 错误，触发重新分析: $recordId');
+    } catch (e) {
+      print('反馈 OCR 错误失败: $e');
+      rethrow;
+    }
+  }
+
   /// 更新错题记录备注
   Future<void> updateMistakeNote(String recordId, String note) async {
     try {

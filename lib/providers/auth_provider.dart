@@ -101,6 +101,10 @@ class AuthProvider with ChangeNotifier {
     String? avatar,
     int? grade,
     List<String>? focusSubjects,
+    String? dailyTaskDifficulty,
+    bool? dailyTaskReminderEnabled,
+    bool? reviewReminderEnabled,
+    String? reviewReminderTime,
   }) async {
     try {
       await _authService.updateUserProfile(
@@ -108,6 +112,10 @@ class AuthProvider with ChangeNotifier {
         avatar: avatar,
         grade: grade,
         focusSubjects: focusSubjects,
+        dailyTaskDifficulty: dailyTaskDifficulty,
+        dailyTaskReminderEnabled: dailyTaskReminderEnabled,
+        reviewReminderEnabled: reviewReminderEnabled,
+        reviewReminderTime: reviewReminderTime,
       );
       // 重新加载用户档案
       _userProfile = _authService.currentProfile;

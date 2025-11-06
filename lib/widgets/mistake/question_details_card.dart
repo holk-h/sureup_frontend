@@ -16,6 +16,7 @@ class QuestionDetailsCard extends StatefulWidget {
   final Map<String, Map<String, String>> modulesInfo;
   final Map<String, Map<String, String>> knowledgePointsInfo;
   final Function(String) onErrorReasonChanged;
+  final Future<void> Function(String)? onReportOcrError;
 
   const QuestionDetailsCard({
     super.key,
@@ -24,6 +25,7 @@ class QuestionDetailsCard extends StatefulWidget {
     required this.modulesInfo,
     required this.knowledgePointsInfo,
     required this.onErrorReasonChanged,
+    this.onReportOcrError,
   });
 
   @override
@@ -122,6 +124,108 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
     );
   }
 
+  Widget _buildOcrFeedbackButton() {
+    return GestureDetector(
+      onTap: _showOcrFeedbackDialog,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '识别错误？点击反馈',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOcrFeedbackDialog() {
+    final TextEditingController controller = TextEditingController();
+
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('反馈识别错误'),
+        content: Column(
+          children: [
+            const SizedBox(height: 12),
+            const Text(
+              '请说明哪里识别错了，帮助我们改进：',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            CupertinoTextField(
+              controller: controller,
+              placeholder: '例如：题目内容识别不完整、选项错误等',
+              maxLines: 3,
+              minLines: 3,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.divider),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              final reason = controller.text.trim();
+              if (reason.isEmpty) {
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              try {
+                // 调用服务反馈 OCR 错误
+                if (widget.onReportOcrError != null) {
+                  await widget.onReportOcrError!(reason);
+                } else {
+                  // 降级方案：直接调用 MistakeService（如果没有传递回调）
+                  await MistakeService().reportOcrError(
+                    widget.mistakeRecord.id,
+                    reason,
+                  );
+                }
+
+                // 提交成功，状态会通过 Realtime 自动更新，页面会显示"AI 分析中"
+                // 不需要手动刷新或关闭页面
+              } catch (e) {
+                // 只在失败时显示提示
+                if (mounted) {
+                  showCupertinoDialog(
+                    context: context,
+                    builder: (context) => CupertinoAlertDialog(
+                      title: const Text('反馈失败'),
+                      content: Text('$e'),
+                      actions: [
+                        CupertinoDialogAction(
+                          child: const Text('确定'),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('提交'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     int animationIndex = 0;
@@ -149,6 +253,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
             _buildSection(
               title: '题目内容',
               icon: CupertinoIcons.doc_text,
+              actionButton: _buildOcrFeedbackButton(),
               child: MathMarkdownText(
                 text: widget.question.content,
                 style: const TextStyle(
@@ -568,7 +673,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
               child: MathMarkdownText(
                 text: widget.question.solvingHint!,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   color: AppColors.textPrimary,
                   height: 1.5,
                   fontWeight: FontWeight.w500,
@@ -587,6 +692,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
     Color? iconColor,
     required Widget child,
     bool isEditable = false,
+    Widget? actionButton,
   }) {
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacingL),
@@ -628,6 +734,10 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                     ),
                   ),
                 ),
+              ],
+              if (actionButton != null) ...[
+                const Spacer(),
+                actionButton,
               ],
             ],
           ),

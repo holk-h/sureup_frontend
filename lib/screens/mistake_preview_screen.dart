@@ -156,7 +156,7 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
     
     // 15秒进度条动画控制器
     _progressController = AnimationController(
-      duration: const Duration(seconds: 30),
+      duration: const Duration(seconds: 40),
       vsync: this,
     );
     
@@ -170,6 +170,12 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
     _recordUpdateSubscription = _previewService.recordUpdates.listen((record) {
       print('🔔 UI 收到记录更新: ${record.id} (状态: ${record.analysisStatus})');
       if (mounted) {
+        // 如果状态变回 pending，重置进度条（用于重新分析的情况）
+        if (record.analysisStatus == AnalysisStatus.pending) {
+          print('   🔄 状态变回 pending，重置进度条');
+          _progressStarted[record.id] = false;
+        }
+        
         print('   🎨 调用 setState 刷新 UI');
         setState(() {});
         HapticFeedback.mediumImpact();
@@ -277,6 +283,9 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
       },
       onToggleImportant: (String recordId, bool isImportant) async {
         await _previewService.updateIsImportant(recordId, isImportant);
+      },
+      onReportOcrError: (recordId, wrongReason) async {
+        await _previewService.reportOcrError(recordId, wrongReason);
       },
       pulseAnimation: _pulseAnimation,
       progressAnimation: _progressAnimation,
@@ -454,6 +463,7 @@ class _MistakeDetailPage extends StatefulWidget {
   final VoidCallback onRetry;
   final Future<void> Function(MistakeRecord, String) onUpdateErrorReason;
   final Future<void> Function(String, bool) onToggleImportant;
+  final Future<void> Function(String, String) onReportOcrError;
   final Animation<double> pulseAnimation;
   final Animation<double> progressAnimation;
   final void Function(String) onStartProgress;
@@ -471,6 +481,7 @@ class _MistakeDetailPage extends StatefulWidget {
     required this.onRetry,
     required this.onUpdateErrorReason,
     required this.onToggleImportant,
+    required this.onReportOcrError,
     required this.pulseAnimation,
     required this.progressAnimation,
     required this.onStartProgress,
@@ -637,6 +648,9 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
                     knowledgePointsInfo: widget.knowledgePointsInfo,
                     onErrorReasonChanged: (errorReason) {
                       widget.onUpdateErrorReason(widget.mistakeRecord!, errorReason);
+                    },
+                    onReportOcrError: (wrongReason) async {
+                      await widget.onReportOcrError(widget.mistakeRecord!.id, wrongReason);
                     },
                   ),
                 ),

@@ -6,6 +6,7 @@ import '../config/text_styles.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import 'auth/login_screen.dart';
+import 'settings_screen.dart';
 
 /// 我的页 - 个人信息
 class ProfileScreen extends StatefulWidget {
@@ -1150,7 +1151,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: '账号设置',
           color: AppColors.accent,
           onTap: () {
-            // TODO: 跳转到设置页面
+            Navigator.of(context).push(
+              CupertinoPageRoute(
+                builder: (context) => const SettingsScreen(),
+              ),
+            );
           },
         ),
         const SizedBox(height: AppConstants.spacingM),

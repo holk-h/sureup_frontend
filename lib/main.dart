@@ -4,6 +4,7 @@ import 'config/colors.dart';
 import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
 import 'services/local_storage_service.dart';
+import 'services/notification_service.dart';
 import 'providers/auth_provider.dart';
 
 void main() async {
@@ -13,6 +14,10 @@ void main() async {
   // 🚀 预初始化本地存储服务（提升性能）
   await LocalStorageService().initialize();
   print('✅ 本地存储服务已预初始化');
+  
+  // 初始化通知服务
+  await NotificationService().initialize();
+  print('✅ 通知服务已初始化');
   
   // 初始化Appwrite
   final authService = AuthService();

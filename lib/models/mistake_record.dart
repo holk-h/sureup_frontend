@@ -15,6 +15,7 @@ enum MasteryStatus {
 enum AnalysisStatus {
   pending('待分析'),
   ocrOK('OCR完成'),
+  ocrWrong('识别有误'),
   processing('分析中'),
   completed('已完成'),
   failed('失败');
@@ -43,6 +44,7 @@ class MistakeRecord {
   // AI 分析相关
   final AnalysisStatus analysisStatus; // 分析状态
   final String? analysisError; // 分析错误信息
+  final String? wrongReason; // OCR 识别错误原因（用户反馈）
   final DateTime? analyzedAt; // 分析完成时间
   
   // 状态
@@ -71,6 +73,7 @@ class MistakeRecord {
     this.isImportant = false,
     this.analysisStatus = AnalysisStatus.pending,
     this.analysisError,
+    this.wrongReason,
     this.analyzedAt,
     this.masteryStatus = MasteryStatus.notStarted,
     this.reviewCount = 0,
@@ -127,6 +130,7 @@ class MistakeRecord {
     'isImportant': isImportant,
     'analysisStatus': analysisStatus.name,
     'analysisError': analysisError,
+    'wrongReason': wrongReason,
     'analyzedAt': analyzedAt?.toIso8601String(),
     'masteryStatus': masteryStatus.name,
     'reviewCount': reviewCount,
@@ -177,6 +181,7 @@ class MistakeRecord {
           ? AnalysisStatus.values.byName(json['analysisStatus'] as String)
           : AnalysisStatus.pending,
       analysisError: json['analysisError'] as String?,
+      wrongReason: json['wrongReason'] as String?,
       analyzedAt: json['analyzedAt'] != null 
           ? DateTime.parse(json['analyzedAt'] as String)
           : null,
@@ -214,6 +219,7 @@ class MistakeRecord {
     bool? isImportant,
     AnalysisStatus? analysisStatus,
     String? analysisError,
+    String? wrongReason,
     DateTime? analyzedAt,
     MasteryStatus? masteryStatus,
     int? reviewCount,
@@ -235,6 +241,7 @@ class MistakeRecord {
     isImportant: isImportant ?? this.isImportant,
     analysisStatus: analysisStatus ?? this.analysisStatus,
     analysisError: analysisError ?? this.analysisError,
+    wrongReason: wrongReason ?? this.wrongReason,
     analyzedAt: analyzedAt ?? this.analyzedAt,
     masteryStatus: masteryStatus ?? this.masteryStatus,
     reviewCount: reviewCount ?? this.reviewCount,

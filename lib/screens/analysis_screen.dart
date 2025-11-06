@@ -772,35 +772,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
-          child: Stack(
+        child: Padding(
+          padding: EdgeInsets.all(isCompact ? AppConstants.spacingM : AppConstants.spacingL),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 装饰性色条
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 4,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        subjectColor,
-                        subjectColor.withOpacity(0.5),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-              ),
-              
-              Padding(
-                padding: EdgeInsets.all(isCompact ? AppConstants.spacingM : AppConstants.spacingL),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
                     // 第一行：学科图标和名称
                     if (isCompact)
                       // 紧凑布局：优化的横向排列
@@ -1078,9 +1054,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),

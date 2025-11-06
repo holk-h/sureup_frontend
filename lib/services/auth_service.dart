@@ -296,6 +296,10 @@ class AuthService {
     String? avatar,
     int? grade,
     List<String>? focusSubjects,
+    String? dailyTaskDifficulty,
+    bool? dailyTaskReminderEnabled,
+    bool? reviewReminderEnabled,
+    String? reviewReminderTime,
   }) async {
     try {
       if (_userId == null || _currentProfile == null) {
@@ -307,6 +311,10 @@ class AuthService {
       if (avatar != null) updateData['avatar'] = avatar;
       if (grade != null) updateData['grade'] = grade;
       if (focusSubjects != null) updateData['focusSubjects'] = focusSubjects;
+      if (dailyTaskDifficulty != null) updateData['dailyTaskDifficulty'] = dailyTaskDifficulty;
+      if (dailyTaskReminderEnabled != null) updateData['dailyTaskReminderEnabled'] = dailyTaskReminderEnabled;
+      if (reviewReminderEnabled != null) updateData['reviewReminderEnabled'] = reviewReminderEnabled;
+      if (reviewReminderTime != null) updateData['reviewReminderTime'] = reviewReminderTime;
       updateData['lastActiveAt'] = DateTime.now().toIso8601String();
       
       final document = await _databases.updateDocument(

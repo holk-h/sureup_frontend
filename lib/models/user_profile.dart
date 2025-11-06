@@ -11,6 +11,12 @@ class UserProfile {
   // 学习偏好
   final int? grade; // 年级（如7-12代表初一到高三）
   final List<String>? focusSubjects; // 关注的学科
+  final String? dailyTaskDifficulty; // 每日任务难度：'easy' | 'normal' | 'hard'
+  
+  // 通知偏好
+  final bool? dailyTaskReminderEnabled; // 每日任务提醒开关
+  final bool? reviewReminderEnabled; // 复习提醒开关
+  final String? reviewReminderTime; // 复习提醒时间（格式：HH:mm）
   
   // 统计数据（缓存，定期更新）
   final int totalMistakes; // 总错题数
@@ -45,6 +51,10 @@ class UserProfile {
     this.phone,
     this.grade,
     this.focusSubjects,
+    this.dailyTaskDifficulty,
+    this.dailyTaskReminderEnabled,
+    this.reviewReminderEnabled,
+    this.reviewReminderTime,
     this.totalMistakes = 0,
     this.masteredMistakes = 0,
     this.totalPracticeSessions = 0,
@@ -81,6 +91,10 @@ class UserProfile {
     'phone': phone,
     'grade': grade,
     'focusSubjects': focusSubjects,
+    'dailyTaskDifficulty': dailyTaskDifficulty,
+    'dailyTaskReminderEnabled': dailyTaskReminderEnabled,
+    'reviewReminderEnabled': reviewReminderEnabled,
+    'reviewReminderTime': reviewReminderTime,
     'totalMistakes': totalMistakes,
     'masteredMistakes': masteredMistakes,
     'totalPracticeSessions': totalPracticeSessions,
@@ -128,6 +142,10 @@ class UserProfile {
     phone: json['phone'] as String?,  // 手机号
     grade: json['grade'] as int?,
     focusSubjects: (json['focusSubjects'] as List<dynamic>?)?.cast<String>(),
+    dailyTaskDifficulty: json['dailyTaskDifficulty'] as String?,
+    dailyTaskReminderEnabled: json['dailyTaskReminderEnabled'] as bool?,
+    reviewReminderEnabled: json['reviewReminderEnabled'] as bool?,
+    reviewReminderTime: json['reviewReminderTime'] as String?,
     totalMistakes: (json['totalMistakes'] as int?) ?? 0,
     masteredMistakes: (json['masteredMistakes'] as int?) ?? 0,
     totalPracticeSessions: (json['totalPracticeSessions'] as int?) ?? 0,
@@ -174,6 +192,10 @@ class UserProfile {
     String? phone,
     int? grade,
     List<String>? focusSubjects,
+    String? dailyTaskDifficulty,
+    bool? dailyTaskReminderEnabled,
+    bool? reviewReminderEnabled,
+    String? reviewReminderTime,
     int? totalMistakes,
     int? masteredMistakes,
     int? totalPracticeSessions,
@@ -193,7 +215,7 @@ class UserProfile {
     DateTime? statsUpdatedAt,
     DateTime? lastReviewAt,
     DateTime? lastResetDate,
-  }) => UserProfile(
+  }  ) => UserProfile(
     id: id ?? this.id,
     name: name ?? this.name,
     avatar: avatar ?? this.avatar,
@@ -201,6 +223,10 @@ class UserProfile {
     phone: phone ?? this.phone,
     grade: grade ?? this.grade,
     focusSubjects: focusSubjects ?? this.focusSubjects,
+    dailyTaskDifficulty: dailyTaskDifficulty ?? this.dailyTaskDifficulty,
+    dailyTaskReminderEnabled: dailyTaskReminderEnabled ?? this.dailyTaskReminderEnabled,
+    reviewReminderEnabled: reviewReminderEnabled ?? this.reviewReminderEnabled,
+    reviewReminderTime: reviewReminderTime ?? this.reviewReminderTime,
     totalMistakes: totalMistakes ?? this.totalMistakes,
     masteredMistakes: masteredMistakes ?? this.masteredMistakes,
     totalPracticeSessions: totalPracticeSessions ?? this.totalPracticeSessions,
