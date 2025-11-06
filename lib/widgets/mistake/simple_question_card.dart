@@ -183,6 +183,7 @@ class _SimpleQuestionCardState extends State<SimpleQuestionCard> {
                     color: AppColors.textPrimary,
                     height: 1.5,
                   ),
+                  scrollable: true,
                 ),
               ),
             ],

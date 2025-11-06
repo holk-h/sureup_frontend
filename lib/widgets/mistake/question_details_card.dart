@@ -412,6 +412,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                     color: AppColors.textPrimary,
                     height: 1.5,
                   ),
+                  scrollable: true,
                 ),
               ),
             ],
@@ -660,16 +661,6 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
             width: 1.5,
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(
-              CupertinoIcons.star_circle_fill,
-              size: 20,
-              color: AppColors.warning,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
               child: MathMarkdownText(
                 text: widget.question.solvingHint!,
                 style: const TextStyle(
@@ -678,9 +669,6 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                   height: 1.5,
                   fontWeight: FontWeight.w500,
                 ),
-              ),
-            ),
-          ],
         ),
       ),
     );

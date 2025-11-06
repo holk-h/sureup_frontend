@@ -1,17 +1,23 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../widgets/common/custom_app_bar.dart';
+import '../widgets/common/math_markdown_text.dart';
 import '../models/models.dart';
 import '../services/mistake_service.dart';
 import '../services/knowledge_service.dart';
+import '../services/accumulated_analysis_service.dart';
 import '../providers/auth_provider.dart';
 
 /// AI分析复盘页面 - 深度错题分析
+/// 
+/// 本页面只分析 analyzedAt 为空的错题（未进行过 AI 积累分析的错题）
+/// 完成分析后，后端会更新这些错题的 analyzedAt 字段
 class AIAnalysisReviewScreen extends StatefulWidget {
-  final int accumulatedMistakes; // 积累的错题数
+  final int accumulatedMistakes; // 积累的错题数（用于初始显示，实际以加载的数据为准）
   final int daysSinceLastReview; // 距上次复盘天数
 
   const AIAnalysisReviewScreen({
@@ -32,6 +38,7 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
   
   final _mistakeService = MistakeService();
   final _knowledgeService = KnowledgeService();
+  final _analysisService = AccumulatedAnalysisService();
   
   // 数据加载状态
   bool _isLoading = true;
@@ -46,6 +53,8 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
   // AI建议生成状态
   bool _isGenerating = false;
   String _generatedText = '';
+  String? _analysisId;  // 分析记录ID
+  StreamSubscription<AnalysisUpdate>? _analysisSubscription;
 
   @override
   void initState() {
@@ -105,6 +114,7 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
       final client = authProvider.authService.client;
       _mistakeService.initialize(client);
       _knowledgeService.initialize(client);
+      _analysisService.initialize(client);
       
       // 获取错题记录和知识点
       final results = await Future.wait([
@@ -112,8 +122,12 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
         _knowledgeService.getUserKnowledgePoints(userId),
       ]);
       
+      // 只保留 accumulatedAnalyzedAt 为空的错题（未分析的积累错题）
+      final allMistakes = results[0] as List<MistakeRecord>;
+      final unanalyzedMistakes = allMistakes.where((m) => m.accumulatedAnalyzedAt == null).toList();
+      
       setState(() {
-        _mistakeRecords = results[0] as List<MistakeRecord>;
+        _mistakeRecords = unanalyzedMistakes;
         _knowledgePoints = results[1] as List<KnowledgePoint>;
         _isLoading = false;
       });
@@ -129,69 +143,85 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _analysisSubscription?.cancel();
+    _analysisService.dispose();
     super.dispose();
   }
   
-  // 模拟流式输出AI建议
+  // 生成AI建议（真实API）
   Future<void> _generateAISuggestions() async {
     if (_isGenerating) return;
+    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userProfile?.id;
+    
+    if (userId == null) {
+      setState(() {
+        _error = '用户未登录';
+      });
+      return;
+    }
     
     setState(() {
       _isGenerating = true;
       _generatedText = '';
+      _error = null;
     });
     
-    const fullText = '''根据你积累的15道错题分析，我发现了以下学习模式和改进建议：
-
-📊 学习现状分析
-你在数学学科的错题最多（5道），占比33.3%。这些错题主要集中在"概念理解不清"这一错因上，说明基础概念的掌握还需要加强。
-
-💡 针对性建议
-
-1. 优先攻克概念理解类问题
-   建议你先从基础概念入手，不要急于做难题。可以尝试用自己的话解释每个概念，看看能否讲给别人听懂。
-
-2. 建立错题复盘习惯
-   距离上次复盘已经3天了，建议每2-3天复盘一次，效果会更好。复盘时不仅要看错题，更要思考"为什么会错"和"下次怎么避免"。
-
-3. 针对性练习策略
-   对于数学薄弱点，建议每天花15-20分钟做同类型变式题。不求多，但求精，每道题都要真正搞懂。
-
-4. 时间规划建议
-   根据当前情况，建议你安排30分钟进行系统复习。可以分配为：概念复习10分钟 + 错题分析10分钟 + 变式练习10分钟。
-
-💪 加油！每一次复盘都是进步的机会，稳了！''';
-    
-    // 流式输出，安全地处理UTF-16字符
-    final runes = fullText.runes.toList();
-    for (int i = 0; i < runes.length; i++) {
-      if (!_isGenerating) break;
+    try {
+      // 1. 创建分析任务
+      _analysisId = await _analysisService.createAnalysis(userId);
       
-      // 根据字符类型调整延迟时间
-      final char = String.fromCharCode(runes[i]);
-      int delay = 30;
-      if (char == '\n') {
-        delay = 100; // 换行稍微停顿
-      } else if (char == '。' || char == '！' || char == '？') {
-        delay = 150; // 句号停顿更久
-      } else if (char == '，' || char == '、') {
-        delay = 80; // 逗号适中停顿
-      }
+      print('分析任务已创建: $_analysisId');
       
-      await Future.delayed(Duration(milliseconds: delay));
+      // 2. 订阅分析更新
+      _analysisService.subscribeToAnalysis(_analysisId!);
       
+      // 3. 监听流式更新
+      _analysisSubscription = _analysisService.analysisStream.listen(
+        (update) {
+          if (mounted) {
+            setState(() {
+              _generatedText = update.content;
+              
+              // 如果分析完成或失败，停止生成状态
+              if (update.isCompleted || update.isFailed) {
+                _isGenerating = false;
+                
+                if (update.isFailed) {
+                  _error = '分析失败，请稍后重试';
+                }
+              }
+            });
+          }
+        },
+        onError: (error) {
+          print('分析流错误: $error');
+          if (mounted) {
+            setState(() {
+              _isGenerating = false;
+              _error = '分析失败：$error';
+            });
+          }
+        },
+        onDone: () {
+          print('分析流结束');
+          if (mounted) {
+            setState(() {
+              _isGenerating = false;
+            });
+          }
+        },
+      );
+      
+    } catch (e) {
+      print('生成分析失败: $e');
       if (mounted) {
         setState(() {
-          // 安全地构建字符串，避免UTF-16问题
-          _generatedText = String.fromCharCodes(runes.take(i + 1));
+          _isGenerating = false;
+          _error = '生成分析失败：$e';
         });
       }
-    }
-    
-    if (mounted) {
-      setState(() {
-        _isGenerating = false;
-      });
     }
   }
 
@@ -387,6 +417,9 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
 
   // 学习状态总览 - 精简版
   Widget _buildOverviewCard(Map<String, dynamic> data) {
+    // 使用实际加载的未分析错题数量
+    final actualAccumulatedMistakes = _mistakeRecords?.length ?? 0;
+    
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppConstants.spacingL,
@@ -406,7 +439,7 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
           Expanded(
             child: _buildCompactStatItem(
               '积累错题',
-              '${widget.accumulatedMistakes}',
+              '$actualAccumulatedMistakes',
               AppColors.mistake,
               CupertinoIcons.doc_text_fill,
             ),
@@ -1006,92 +1039,52 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFormattedText(_generatedText),
-                  // 显示光标效果
-                  if (_isGenerating)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      width: 8,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                  // 加载中动画
+                  if (_isGenerating && _generatedText.isEmpty)
+                    const Column(
+                      children: [
+                        CupertinoActivityIndicator(radius: 14),
+                        SizedBox(height: 12),
+                        Text(
+                          'AI 正在分析中...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  // 显示生成的内容
+                  else if (_generatedText.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MathMarkdownText(
+                          text: _generatedText,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                            height: 1.6,
+                          ),
+                        ),
+                        // 显示光标效果
+                        if (_isGenerating)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            width: 8,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                      ],
                     ),
                 ],
               ),
             ),
         ],
       ),
-    );
-  }
-
-  // 格式化文本显示
-  Widget _buildFormattedText(String text) {
-    final lines = text.split('\n');
-    final List<Widget> widgets = [];
-    
-    for (final line in lines) {
-      if (line.trim().isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-      
-      // 检查是否是标题行（包含emoji）
-      if (line.contains('📊') || line.contains('💡') || line.contains('💪')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text(
-              line,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-                height: 1.4,
-              ),
-            ),
-          ),
-        );
-      }
-      // 检查是否是编号列表
-      else if (RegExp(r'^\d+\.').hasMatch(line.trim())) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Text(
-              line,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-                height: 1.5,
-              ),
-            ),
-          ),
-        );
-      }
-      // 普通文本
-      else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              line,
-              style: const TextStyle(
-                fontSize: 15,
-                color: AppColors.textPrimary,
-                height: 1.6,
-              ),
-            ),
-          ),
-        );
-      }
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
     );
   }
 

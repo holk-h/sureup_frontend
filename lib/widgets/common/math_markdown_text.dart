@@ -7,18 +7,32 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 class MathMarkdownText extends StatelessWidget {
   final String text;
   final TextStyle style;
+  /// 是否允许横向滚动（用于处理长公式溢出问题）
+  final bool scrollable;
 
   const MathMarkdownText({
     super.key,
     required this.text,
     required this.style,
+    this.scrollable = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GptMarkdown(
+    final child = GptMarkdown(
       text,
       style: style,
     );
+
+    // 如果允许滚动，包装在 SingleChildScrollView 中
+    if (scrollable) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: child,
+      );
+    }
+
+    return child;
   }
 }

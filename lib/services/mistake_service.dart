@@ -154,24 +154,33 @@ class MistakeService {
       // 获取所有错题
       final mistakes = await getUserMistakes(userId);
       
-      // 计算积累的错题数（未掌握的）
+      // 计算积累的错题数（accumulatedAnalyzedAt 为空的，即未进行过积累错题分析的）
       final accumulatedMistakes = mistakes
-          .where((m) => m.masteryStatus != MasteryStatus.mastered)
+          .where((m) => m.accumulatedAnalyzedAt == null)
           .length;
       
-      // 计算距离上次复盘的天数
+      // 计算距离上次复盘的天数（基于最近的 accumulatedAnalyzedAt）
       int daysSinceLastReview = 0;
       if (mistakes.isNotEmpty) {
-        final lastReview = mistakes
-            .where((m) => m.lastReviewAt != null)
-            .map((m) => m.lastReviewAt!)
+        // 找到最近一次积累分析的时间
+        final lastAnalysis = mistakes
+            .where((m) => m.accumulatedAnalyzedAt != null)
+            .map((m) => m.accumulatedAnalyzedAt!)
             .fold<DateTime?>(null, (prev, curr) {
               if (prev == null) return curr;
               return curr.isAfter(prev) ? curr : prev;
             });
         
-        if (lastReview != null) {
-          daysSinceLastReview = DateTime.now().difference(lastReview).inDays;
+        if (lastAnalysis != null) {
+          daysSinceLastReview = DateTime.now().difference(lastAnalysis).inDays;
+        } else {
+          // 如果从未分析过，计算从最早的错题创建时间到现在的天数
+          if (mistakes.isNotEmpty) {
+            final earliestMistake = mistakes
+                .map((m) => m.createdAt)
+                .reduce((a, b) => a.isBefore(b) ? a : b);
+            daysSinceLastReview = DateTime.now().difference(earliestMistake).inDays;
+          }
         }
       }
       

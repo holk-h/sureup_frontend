@@ -42,7 +42,6 @@ class NotificationService {
     );
 
     _initialized = true;
-    print('✅ 通知服务初始化完成');
   }
 
   /// 请求通知权限
@@ -70,7 +69,6 @@ class NotificationService {
 
   /// 点击通知回调
   void _onNotificationTapped(NotificationResponse response) {
-    print('📱 通知被点击: ${response.payload}');
     // TODO: 根据 payload 处理不同的跳转逻辑
   }
 
@@ -123,7 +121,6 @@ class NotificationService {
     if (!enabled) {
       await cancelNotification(notificationId);
       await _saveReminderPreference('review_reminder', false, null);
-      print('❌ 复习提醒已取消');
       return;
     }
 
@@ -190,16 +187,6 @@ class NotificationService {
       true,
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
     );
-
-    print('✅ 复习提醒已设置: ${time.hour}:${time.minute}');
-    print('   下次触发时间: $scheduledDate');
-    
-    // 调试：列出所有待处理的通知
-    final pending = await getPendingNotifications();
-    print('   当前待处理通知数: ${pending.length}');
-    for (var notification in pending) {
-      print('   - ID: ${notification.id}, Title: ${notification.title}, Body: ${notification.body}');
-    }
   }
 
   /// 设置每日任务提醒
@@ -212,7 +199,6 @@ class NotificationService {
     if (!enabled) {
       await cancelNotification(notificationId);
       await _saveReminderPreference('daily_task_reminder', false, null);
-      print('❌ 每日任务提醒已取消');
       return;
     }
 
@@ -278,8 +264,6 @@ class NotificationService {
       true,
       '${reminderTime.hour.toString().padLeft(2, '0')}:${reminderTime.minute.toString().padLeft(2, '0')}',
     );
-
-    print('✅ 每日任务提醒已设置: ${reminderTime.hour}:${reminderTime.minute}');
   }
 
   /// 取消特定通知
@@ -297,48 +281,6 @@ class NotificationService {
     return await _notifications.pendingNotificationRequests();
   }
   
-  /// 测试通知（1分钟后触发）
-  Future<void> testNotificationIn1Minute() async {
-    if (!_initialized) {
-      await initialize();
-    }
-    
-    final now = tz.TZDateTime.now(tz.local);
-    final scheduledDate = now.add(const Duration(minutes: 1));
-    
-    const androidDetails = AndroidNotificationDetails(
-      'test_channel',
-      '测试通知',
-      channelDescription: '用于测试的通知',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-    
-    await _notifications.zonedSchedule(
-      9999, // 测试通知的 ID
-      '🧪 测试通知',
-      '这是一条测试通知，将在1分钟后显示',
-      scheduledDate,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-    
-    print('✅ 测试通知已设置，将在1分钟后触发');
-    print('   触发时间: $scheduledDate');
-  }
 
   /// 保存提醒偏好到本地
   Future<void> _saveReminderPreference(

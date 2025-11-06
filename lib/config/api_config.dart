@@ -26,6 +26,7 @@ class ApiConfig {
   static const String knowledgePointsLibraryCollectionId = 'knowledge_points_library';  // 学科模块库（公共）
   static const String dailyTasksCollectionId = 'daily_tasks';  // 每日任务
   static const String reviewStatesCollectionId = 'review_states';  // 复习状态
+  static const String accumulatedAnalysesCollectionId = 'accumulated_analyses';  // 积累错题分析
   
   // 存储桶配置
   static const String imagesBucketId = 'images';
@@ -46,4 +47,7 @@ class ApiConfig {
   static const int maxFileSize = 10 * 1024 * 1024; // 10MB
   static const List<String> allowedImageTypes = ['jpg', 'jpeg', 'png', 'webp'];
   static const List<String> allowedDocumentTypes = ['pdf', 'doc', 'docx'];
+  
+  // Functions 配置
+  static const String functionAccumulatedAnalyzer = 'ai-accumulated-analyzer';  // 积累错题分析 Function
 }

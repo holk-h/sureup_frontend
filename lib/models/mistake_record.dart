@@ -46,6 +46,7 @@ class MistakeRecord {
   final String? analysisError; // 分析错误信息
   final String? wrongReason; // OCR 识别错误原因（用户反馈）
   final DateTime? analyzedAt; // 分析完成时间
+  final DateTime? accumulatedAnalyzedAt; // 积累错题分析时间
   
   // 状态
   final MasteryStatus masteryStatus;
@@ -75,6 +76,7 @@ class MistakeRecord {
     this.analysisError,
     this.wrongReason,
     this.analyzedAt,
+    this.accumulatedAnalyzedAt,
     this.masteryStatus = MasteryStatus.notStarted,
     this.reviewCount = 0,
     this.correctCount = 0,
@@ -132,6 +134,7 @@ class MistakeRecord {
     'analysisError': analysisError,
     'wrongReason': wrongReason,
     'analyzedAt': analyzedAt?.toIso8601String(),
+    'accumulatedAnalyzedAt': accumulatedAnalyzedAt?.toIso8601String(),
     'masteryStatus': masteryStatus.name,
     'reviewCount': reviewCount,
     'correctCount': correctCount,
@@ -185,6 +188,9 @@ class MistakeRecord {
       analyzedAt: json['analyzedAt'] != null 
           ? DateTime.parse(json['analyzedAt'] as String)
           : null,
+      accumulatedAnalyzedAt: json['accumulatedAnalyzedAt'] != null 
+          ? DateTime.parse(json['accumulatedAnalyzedAt'] as String)
+          : null,
       masteryStatus: json['masteryStatus'] != null
           ? MasteryStatus.values.byName(json['masteryStatus'] as String)
           : MasteryStatus.notStarted,
@@ -221,6 +227,7 @@ class MistakeRecord {
     String? analysisError,
     String? wrongReason,
     DateTime? analyzedAt,
+    DateTime? accumulatedAnalyzedAt,
     MasteryStatus? masteryStatus,
     int? reviewCount,
     int? correctCount,
@@ -243,6 +250,7 @@ class MistakeRecord {
     analysisError: analysisError ?? this.analysisError,
     wrongReason: wrongReason ?? this.wrongReason,
     analyzedAt: analyzedAt ?? this.analyzedAt,
+    accumulatedAnalyzedAt: accumulatedAnalyzedAt ?? this.accumulatedAnalyzedAt,
     masteryStatus: masteryStatus ?? this.masteryStatus,
     reviewCount: reviewCount ?? this.reviewCount,
     correctCount: correctCount ?? this.correctCount,

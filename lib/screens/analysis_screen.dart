@@ -19,7 +19,7 @@ class AnalysisScreen extends StatefulWidget {
   State<AnalysisScreen> createState() => _AnalysisScreenState();
 }
 
-class _AnalysisScreenState extends State<AnalysisScreen> {
+class _AnalysisScreenState extends State<AnalysisScreen> with WidgetsBindingObserver {
   final _knowledgeService = KnowledgeService();
   final _mistakeService = MistakeService();
   
@@ -27,11 +27,53 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Map<String, int>? _accumulationStats;
   bool _isLoading = true;
   String? _error;
+  bool _isFirstLoad = true;
+  DateTime? _lastRefreshTime;
   
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadData();
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 当应用从后台返回前台时刷新数据
+    if (state == AppLifecycleState.resumed && mounted) {
+      _refreshIfNeeded();
+    }
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 页面首次加载后，每次变为可见时刷新数据
+    if (!_isFirstLoad && mounted) {
+      // 延迟一帧执行，避免在 build 过程中调用 setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _refreshIfNeeded();
+        }
+      });
+    }
+    _isFirstLoad = false;
+  }
+  
+  /// 根据上次刷新时间判断是否需要刷新（避免频繁刷新）
+  void _refreshIfNeeded() {
+    final now = DateTime.now();
+    // 如果距离上次刷新超过5秒，则刷新数据
+    if (_lastRefreshTime == null || 
+        now.difference(_lastRefreshTime!).inSeconds > 5) {
+      _loadData();
+    }
   }
   
   Future<void> _loadData() async {
@@ -53,6 +95,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             'accumulatedMistakes': 0,
           };
           _isLoading = false;
+          _lastRefreshTime = DateTime.now();
         });
         return;
       }
@@ -72,12 +115,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         _allPoints = results[0] as List<KnowledgePoint>;
         _accumulationStats = results[1] as Map<String, int>;
         _isLoading = false;
+        _lastRefreshTime = DateTime.now();
       });
     } catch (e) {
       print('加载数据失败: $e');
       setState(() {
         _isLoading = false;
         _error = '加载数据失败：$e';
+        _lastRefreshTime = DateTime.now();
       });
     }
   }
