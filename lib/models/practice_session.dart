@@ -67,6 +67,11 @@ class PracticeSession {
   final String? aiAnalysis; // AI分析
   final String? aiEncouragement; // AI鼓励语
   
+  // 每日任务相关
+  final String? dailyTaskId; // 关联的每日任务ID
+  final String? taskItemId; // 关联的任务项ID
+  final String? userFeedback; // 用户反馈（完全掌握/基本会了/还不会）
+  
   const PracticeSession({
     required this.id,
     required this.userId,
@@ -82,6 +87,9 @@ class PracticeSession {
     this.isCompleted = false,
     this.aiAnalysis,
     this.aiEncouragement,
+    this.dailyTaskId,
+    this.taskItemId,
+    this.userFeedback,
   });
 
   /// 进度（已完成题数 / 总题数）
@@ -128,6 +136,9 @@ class PracticeSession {
     'isCompleted': isCompleted,
     'aiAnalysis': aiAnalysis,
     'aiEncouragement': aiEncouragement,
+    'dailyTaskId': dailyTaskId,
+    'taskItemId': taskItemId,
+    'userFeedback': userFeedback,
   };
 
   /// JSON 反序列化
@@ -152,6 +163,9 @@ class PracticeSession {
     isCompleted: json['isCompleted'] as bool,
     aiAnalysis: json['aiAnalysis'] as String?,
     aiEncouragement: json['aiEncouragement'] as String?,
+    dailyTaskId: json['dailyTaskId'] as String?,
+    taskItemId: json['taskItemId'] as String?,
+    userFeedback: json['userFeedback'] as String?,
   );
 
   /// 复制并更新
@@ -170,6 +184,9 @@ class PracticeSession {
     bool? isCompleted,
     String? aiAnalysis,
     String? aiEncouragement,
+    String? dailyTaskId,
+    String? taskItemId,
+    String? userFeedback,
   }) => PracticeSession(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -185,5 +202,8 @@ class PracticeSession {
     isCompleted: isCompleted ?? this.isCompleted,
     aiAnalysis: aiAnalysis ?? this.aiAnalysis,
     aiEncouragement: aiEncouragement ?? this.aiEncouragement,
+    dailyTaskId: dailyTaskId ?? this.dailyTaskId,
+    taskItemId: taskItemId ?? this.taskItemId,
+    userFeedback: userFeedback ?? this.userFeedback,
   );
 }

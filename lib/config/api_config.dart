@@ -24,6 +24,8 @@ class ApiConfig {
   static const String weeklyReportsCollectionId = 'weekly_reports';
   static const String knowledgePointsCollectionId = 'user_knowledge_points';  // 用户知识点树
   static const String knowledgePointsLibraryCollectionId = 'knowledge_points_library';  // 学科模块库（公共）
+  static const String dailyTasksCollectionId = 'daily_tasks';  // 每日任务
+  static const String reviewStatesCollectionId = 'review_states';  // 复习状态
   
   // 存储桶配置
   static const String imagesBucketId = 'images';

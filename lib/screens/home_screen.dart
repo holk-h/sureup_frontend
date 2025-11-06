@@ -2,12 +2,15 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
-import '../widgets/cards/daily_task_card.dart';
+import '../widgets/cards/daily_task_summary_card.dart';
 import '../widgets/cards/weekly_chart_card.dart';
 import '../widgets/common/hitokoto_widget.dart';
 import '../providers/auth_provider.dart';
 import '../services/services.dart';
+import '../services/daily_task_service.dart';
+import '../models/daily_task.dart';
 import 'auth/login_screen.dart';
+import 'daily_task_screen.dart';
 
 /// 主页 - 今日任务
 class HomeScreen extends StatefulWidget {
@@ -26,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> 
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final StatsService _statsService = StatsService();
+  final DailyTaskService _dailyTaskService = DailyTaskService();
   
   late AnimationController _encouragementController;
   late Animation<double> _encouragementAnimation;
@@ -33,6 +37,9 @@ class _HomeScreenState extends State<HomeScreen>
   
   // 初始显示默认数据，不阻塞UI
   Map<String, dynamic> _stats = _getDefaultStats();
+  DailyTask? _todayTask;
+  bool _isLoadingTask = false;
+  int _continuousDays = 0; // 连续完成天数
   
   bool _isInitialized = false;
   bool _isLoading = false; // 防止重复加载
@@ -98,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen>
       
       // 加载数据
       _loadData();
+      _loadTodayTask();
       
       // 延迟启动动画，避免和数据加载冲突
       Future.delayed(const Duration(milliseconds: 400), () {
@@ -177,6 +185,109 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
+  /// 加载今日任务
+  Future<void> _loadTodayTask() async {
+    if (_isLoadingTask) return;
+
+    setState(() => _isLoadingTask = true);
+
+    try {
+      final authService = AuthService();
+      if (authService.userId == null) {
+        if (mounted) {
+          setState(() {
+            _todayTask = null;
+            _isLoadingTask = false;
+          });
+        }
+        return;
+      }
+
+      _dailyTaskService.initialize(authService.client);
+      final task = await _dailyTaskService.getTodayTask();
+
+      // 计算连续天数
+      final continuousDays = await _calculateContinuousDays();
+
+      if (mounted) {
+        setState(() {
+          _todayTask = task;
+          _continuousDays = continuousDays;
+          _isLoadingTask = false;
+        });
+      }
+    } catch (e) {
+      print('加载今日任务失败: $e');
+      if (mounted) {
+        setState(() {
+          _todayTask = null;
+          _isLoadingTask = false;
+        });
+      }
+    }
+  }
+
+  /// 计算连续完成天数
+  Future<int> _calculateContinuousDays() async {
+    try {
+      final authService = AuthService();
+      if (authService.userId == null) return 0;
+
+      // 获取最近的任务历史
+      final recentTasks = await _dailyTaskService.getRecentTasks(limit: 30);
+      
+      if (recentTasks.isEmpty) return 0;
+
+      // 从今天开始往前数，计算连续完成的天数
+      int continuousDays = 0;
+      final now = DateTime.now();
+      
+      // 按日期倒序排列
+      final sortedTasks = recentTasks.toList()
+        ..sort((a, b) => b.taskDate.compareTo(a.taskDate));
+      
+      // 从最近的日期开始检查
+      DateTime checkDate = DateTime(now.year, now.month, now.day);
+      
+      for (int i = 0; i < sortedTasks.length; i++) {
+        final task = sortedTasks[i];
+        final taskDay = DateTime(
+          task.taskDate.year,
+          task.taskDate.month,
+          task.taskDate.day,
+        );
+        
+        // 如果任务日期等于检查日期且已完成
+        if (taskDay.isAtSameMomentAs(checkDate) && task.isCompleted) {
+          continuousDays++;
+          // 检查前一天
+          checkDate = checkDate.subtract(const Duration(days: 1));
+        } else if (taskDay.isBefore(checkDate)) {
+          // 如果任务日期早于检查日期，说明中断了
+          break;
+        }
+      }
+      
+      return continuousDays;
+    } catch (e) {
+      print('计算连续天数失败: $e');
+      return 0;
+    }
+  }
+
+  /// 跳转到每日任务页面
+  void _navigateToDailyTask() {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => const DailyTaskScreen(),
+      ),
+    ).then((_) {
+      // 返回后刷新任务状态
+      _loadTodayTask();
+    });
+  }
+
   /// 异步刷新数据（包括图表数据）
   Future<void> _loadData() async {
     // 防止重复加载
@@ -246,9 +357,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   /// 构建主要内容
   Widget _buildContent(AuthProvider authProvider) {
-    final notMasteredCount = _stats['notMasteredCount'] ?? 0;
-    final masteredCount = _stats['masteredCount'] ?? 0;
-    final progress = _stats['progress'] ?? 0.0;
     final userName = authProvider.userProfile?.name ?? _stats['userName'] ?? '游客';
     
     // 安全获取图表数据
@@ -283,14 +391,14 @@ class _HomeScreenState extends State<HomeScreen>
                     
                     const SizedBox(height: AppConstants.spacingL),
                     
-                    // 今日任务卡片
-                    DailyTaskCard(
-                      reviewCount: notMasteredCount,
-                      practiceCount: _stats['totalMistakes'] ?? 0,
-                      masteredCount: masteredCount,
-                      progress: progress,
-                      currentStage: _calculateCurrentStage(progress),
-                      onTap: authProvider.isLoggedIn ? null : _navigateToLogin,
+                    // 每日任务卡片
+                    DailyTaskSummaryCard(
+                      task: _todayTask,
+                      isLoading: _isLoadingTask,
+                      continuousDays: _continuousDays,
+                      onTap: authProvider.isLoggedIn 
+                          ? _navigateToDailyTask 
+                          : _navigateToLogin,
                     ),
                     
                     const SizedBox(height: AppConstants.spacingL),
@@ -318,20 +426,6 @@ class _HomeScreenState extends State<HomeScreen>
         ],
       ),
     );
-  }
-  
-  /// 根据完成进度计算当前所处阶段
-  /// 0: 未开始, 1: 错题记录, 2: 分析, 3: 练习
-  int _calculateCurrentStage(double progress) {
-    if (progress == 0) {
-      return 0; // 未开始
-    } else if (progress < 0.33) {
-      return 1; // 错题记录阶段
-    } else if (progress < 0.67) {
-      return 2; // 分析阶段
-    } else {
-      return 3; // 练习阶段
-    }
   }
   
   // 获取问候语和emoji（合并为一个方法减少重复计算）

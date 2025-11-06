@@ -16,6 +16,11 @@ export 'practice_session.dart';
 export 'user_profile.dart';
 export 'weekly_report.dart';
 
+// 每日任务系统
+export 'review_state.dart';
+export 'learning_memory.dart';
+export 'daily_task.dart';
+
 // 第三方服务
 export 'hitokoto.dart';
 

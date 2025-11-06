@@ -1,5 +1,29 @@
 import 'subject.dart';
 
+/// 知识点重要程度枚举
+enum KnowledgePointImportance {
+  high('high', '高频考点', '考试常考的核心重点'),
+  basic('basic', '基础知识', '前置必会的基础内容'),
+  normal('normal', '普通考点', '一般重要程度');
+
+  const KnowledgePointImportance(this.value, this.displayName, this.description);
+  final String value;
+  final String displayName;
+  final String description;
+
+  static KnowledgePointImportance fromString(String? value) {
+    switch (value) {
+      case 'high':
+        return KnowledgePointImportance.high;
+      case 'basic':
+        return KnowledgePointImportance.basic;
+      case 'normal':
+      default:
+        return KnowledgePointImportance.normal;
+    }
+  }
+}
+
 /// 知识点模型（对应数据库表 user_knowledge_points）
 class KnowledgePoint {
   final String id;
@@ -8,6 +32,7 @@ class KnowledgePoint {
   final Subject subject; // 学科
   final String name; // 知识点名称
   final String? description; // 知识点描述
+  final KnowledgePointImportance importance; // 知识点重要程度（新增）
   
   // 统计数据
   final int mistakeCount; // 错题总数
@@ -26,6 +51,7 @@ class KnowledgePoint {
     required this.subject,
     required this.name,
     this.description,
+    this.importance = KnowledgePointImportance.normal,
     this.mistakeCount = 0,
     this.masteredCount = 0,
     this.questionIds = const [],
@@ -50,6 +76,7 @@ class KnowledgePoint {
     'subject': subject.displayName, // 使用中文名称以匹配数据库格式
     'name': name,
     'description': description,
+    'importance': importance.value,
     'mistakeCount': mistakeCount,
     'masteredCount': masteredCount,
     'questionIds': questionIds,
@@ -61,6 +88,11 @@ class KnowledgePoint {
     // 处理 subject 字段 - 支持枚举名称或中文显示名
     final subjectStr = json['subject'] as String;
     final subject = Subject.fromString(subjectStr) ?? Subject.math;
+    
+    // 处理 importance 字段
+    final importance = KnowledgePointImportance.fromString(
+      json['importance'] as String?
+    );
     
     // 处理 questionIds 字段
     List<String> questionIds = [];
@@ -79,6 +111,7 @@ class KnowledgePoint {
       subject: subject,
       name: json['name'] as String,
       description: json['description'] as String?,
+      importance: importance,
       mistakeCount: (json['mistakeCount'] as int?) ?? 0,
       masteredCount: (json['masteredCount'] as int?) ?? 0,
       questionIds: questionIds,
@@ -96,6 +129,7 @@ class KnowledgePoint {
     Subject? subject,
     String? name,
     String? description,
+    KnowledgePointImportance? importance,
     int? mistakeCount,
     int? masteredCount,
     List<String>? questionIds,
@@ -107,6 +141,7 @@ class KnowledgePoint {
     subject: subject ?? this.subject,
     name: name ?? this.name,
     description: description ?? this.description,
+    importance: importance ?? this.importance,
     mistakeCount: mistakeCount ?? this.mistakeCount,
     masteredCount: masteredCount ?? this.masteredCount,
     questionIds: questionIds ?? this.questionIds,

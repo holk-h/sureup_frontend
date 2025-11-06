@@ -542,7 +542,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
 
   Widget _buildSolvingHintSection() {
     return _buildSection(
-      title: '💡 解题提示',
+      title: '解题提示',
       icon: CupertinoIcons.lightbulb_fill,
       iconColor: AppColors.warning,
       child: Container(
@@ -565,8 +565,8 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                widget.question.solvingHint!,
+              child: MathMarkdownText(
+                text: widget.question.solvingHint!,
                 style: const TextStyle(
                   fontSize: 14,
                   color: AppColors.textPrimary,
