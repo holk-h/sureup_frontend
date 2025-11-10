@@ -37,6 +37,10 @@ class UserProfile {
   
   // 图表数据
   final String? weeklyMistakesData; // 过去一周错题数据（JSON格式）
+  final String? weeklyReviewData; // 过去一周复习数据（JSON格式）
+  
+  // 学科掌握度（由后端聚合计算）
+  final Map<String, int>? subjectMasteryScores; // 学科掌握度分数，格式: {"数学": 75, "物理": 60}
   
   // 时间戳
   final DateTime createdAt;
@@ -72,6 +76,8 @@ class UserProfile {
     this.totalQuestions = 0,
     this.totalCorrectAnswers = 0,
     this.weeklyMistakesData,
+    this.weeklyReviewData,
+    this.subjectMasteryScores,
     required this.createdAt,
     this.lastActiveAt,
     this.lastPracticeDate,
@@ -113,6 +119,8 @@ class UserProfile {
     'totalQuestions': totalQuestions,
     'totalCorrectAnswers': totalCorrectAnswers,
     'weeklyMistakesData': weeklyMistakesData,
+    'weeklyReviewData': weeklyReviewData,
+    'subjectMasteryScores': subjectMasteryScores != null ? jsonEncode(subjectMasteryScores) : null,
     'createdAt': createdAt.toIso8601String(),
     'lastActiveAt': lastActiveAt?.toIso8601String(),
     'lastPracticeDate': lastPracticeDate?.toIso8601String(),
@@ -136,6 +144,44 @@ class UserProfile {
         } catch (e) {
           print('⚠️ 转换 weeklyMistakesData 为字符串失败: $e');
         }
+      }
+    }
+    
+    // 处理 weeklyReviewData - 可能是字符串或已解析的List
+    String? weeklyReviewDataStr;
+    final weeklyReviewDataRaw = json['weeklyReviewData'];
+    if (weeklyReviewDataRaw != null) {
+      if (weeklyReviewDataRaw is String) {
+        weeklyReviewDataStr = weeklyReviewDataRaw;
+      } else if (weeklyReviewDataRaw is List) {
+        // 如果已经是List，转换回JSON字符串
+        try {
+          weeklyReviewDataStr = jsonEncode(weeklyReviewDataRaw);
+        } catch (e) {
+          print('⚠️ 转换 weeklyReviewData 为字符串失败: $e');
+        }
+      }
+    }
+    
+    // 处理 subjectMasteryScores - 从后端同步的学科掌握度
+    Map<String, int>? subjectMasteryScores;
+    final subjectScoresRaw = json['subjectMasteryScores'];
+    if (subjectScoresRaw != null) {
+      try {
+        if (subjectScoresRaw is String) {
+          // 从JSON字符串解析
+          final decoded = jsonDecode(subjectScoresRaw) as Map;
+          subjectMasteryScores = decoded.map((key, value) => 
+            MapEntry(key.toString(), (value as num).toInt())
+          );
+        } else if (subjectScoresRaw is Map) {
+          // 直接是Map对象
+          subjectMasteryScores = subjectScoresRaw.map((key, value) => 
+            MapEntry(key.toString(), (value as num).toInt())
+          );
+        }
+      } catch (e) {
+        print('⚠️ 解析 subjectMasteryScores 失败: $e');
       }
     }
     
@@ -165,6 +211,8 @@ class UserProfile {
     totalQuestions: (json['totalQuestions'] as int?) ?? 0,
     totalCorrectAnswers: (json['totalCorrectAnswers'] as int?) ?? 0,
       weeklyMistakesData: weeklyMistakesDataStr,
+      weeklyReviewData: weeklyReviewDataStr,
+      subjectMasteryScores: subjectMasteryScores,
     // 使用 Appwrite 的自动时间戳 $createdAt 作为创建时间
     createdAt: json['createdAt'] != null 
         ? DateTime.parse(json['createdAt'] as String).toLocal()
@@ -216,6 +264,8 @@ class UserProfile {
     int? totalQuestions,
     int? totalCorrectAnswers,
     String? weeklyMistakesData,
+    String? weeklyReviewData,
+    Map<String, int>? subjectMasteryScores,
     DateTime? createdAt,
     DateTime? lastActiveAt,
     DateTime? lastPracticeDate,
@@ -248,6 +298,8 @@ class UserProfile {
     totalQuestions: totalQuestions ?? this.totalQuestions,
     totalCorrectAnswers: totalCorrectAnswers ?? this.totalCorrectAnswers,
     weeklyMistakesData: weeklyMistakesData ?? this.weeklyMistakesData,
+    weeklyReviewData: weeklyReviewData ?? this.weeklyReviewData,
+    subjectMasteryScores: subjectMasteryScores ?? this.subjectMasteryScores,
     createdAt: createdAt ?? this.createdAt,
     lastActiveAt: lastActiveAt ?? this.lastActiveAt,
     lastPracticeDate: lastPracticeDate ?? this.lastPracticeDate,

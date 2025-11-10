@@ -127,13 +127,13 @@ class StatsService {
   /// 将 UserProfile 转换为统计数据格式
   Map<String, dynamic> _profileToStats(UserProfile profile) {
     // 解析 weeklyMistakesData JSON
-    List<Map<String, dynamic>> weeklyData = [];
+    List<Map<String, dynamic>> weeklyMistakesData = [];
     if (profile.weeklyMistakesData != null && profile.weeklyMistakesData!.isNotEmpty) {
       try {
         // 尝试解析 JSON 字符串
         final decoded = jsonDecode(profile.weeklyMistakesData!);
         if (decoded is List) {
-          weeklyData = decoded.map((e) => {
+          weeklyMistakesData = decoded.map((e) => {
             'date': e['date'] as String,
             'count': e['count'] as int,
           }).toList();
@@ -141,6 +141,27 @@ class StatsService {
       } catch (e) {
         print('⚠️ 解析 weeklyMistakesData 失败: $e');
       }
+    }
+    
+    // 解析 weeklyReviewData JSON（复习题目数据）
+    List<Map<String, dynamic>> weeklyReviewData = [];
+    if (profile.weeklyReviewData != null && profile.weeklyReviewData!.isNotEmpty) {
+      try {
+        // 尝试解析 JSON 字符串
+        print('📊 原始 weeklyReviewData: ${profile.weeklyReviewData}');
+        final decoded = jsonDecode(profile.weeklyReviewData!);
+        if (decoded is List) {
+          weeklyReviewData = decoded.map((e) => {
+            'date': e['date'] as String,
+            'count': e['count'] as int,
+          }).toList();
+          print('📊 解析后的 weeklyReviewData: $weeklyReviewData');
+        }
+      } catch (e) {
+        print('⚠️ 解析 weeklyReviewData 失败: $e');
+      }
+    } else {
+      print('📊 weeklyReviewData 为空或不存在');
     }
     
     return {
@@ -165,7 +186,8 @@ class StatsService {
       'activeDays': profile.activeDays,
       
       // 图表数据（原始 JSON 数据）
-      'weeklyMistakesData': weeklyData,
+      'weeklyMistakesData': weeklyMistakesData,
+      'weeklyReviewData': weeklyReviewData,
       
       // 用户信息
       'userName': profile.name,
@@ -188,19 +210,43 @@ class StatsService {
       'progress': _calculateProgress(stats),
       'completionRate': _calculateCompletionRate(stats),
       'accuracy': _calculateAccuracy(stats),
-      // 格式化周数据为图表格式
-      'weeklyChartData': _formatWeeklyChartData(stats['weeklyMistakesData']),
+      // 格式化周数据为图表格式（同时传入错题和复习数据）
+      'weeklyChartData': _formatWeeklyChartData(
+        stats['weeklyMistakesData'],
+        stats['weeklyReviewData'],
+      ),
     };
   }
   
   /// 格式化周数据为图表格式
   /// 
-  /// 输入：[{"date": "2024-11-01", "count": 5}, ...]
-  /// 输出：[{"day": "周一", "date": "2024-11-01", "mistakeCount": 5.0, ...}, ...]
-  List<Map<String, dynamic>> _formatWeeklyChartData(dynamic weeklyData) {
-    if (weeklyData == null || weeklyData is! List) {
+  /// 输入：
+  ///   - weeklyMistakesData: [{"date": "2024-11-01", "count": 5}, ...]
+  ///   - weeklyReviewData: [{"date": "2024-11-01", "count": 3}, ...]
+  /// 输出：[{"day": "周一", "date": "2024-11-01", "mistakeCount": 5.0, "practiceCount": 3.0, ...}, ...]
+  List<Map<String, dynamic>> _formatWeeklyChartData(
+    dynamic weeklyMistakesData,
+    dynamic weeklyReviewData,
+  ) {
+    if (weeklyMistakesData == null || weeklyMistakesData is! List) {
       return _getDefaultWeeklyData();
     }
+    
+    // 将 reviewData 转换为 Map 以便快速查找
+    final reviewDataMap = <String, int>{};
+    if (weeklyReviewData is List) {
+      for (var entry in weeklyReviewData) {
+        try {
+          final date = entry['date'] as String;
+          final count = (entry['count'] as num?)?.toInt() ?? 0;
+          reviewDataMap[date] = count;
+          print('📊 添加复习数据: $date -> $count');
+        } catch (e) {
+          print('⚠️ 解析复习数据条目失败: $e');
+        }
+      }
+    }
+    print('📊 reviewDataMap: $reviewDataMap');
     
     // 确保有最近7天的数据
     final now = DateTime.now();
@@ -210,24 +256,29 @@ class StatsService {
       final date = now.subtract(Duration(days: i));
       final dateStr = _getDateKey(date);
       
-      // 查找该日期的数据
-      int count = 0;
+      // 查找该日期的错题数据
+      int mistakeCount = 0;
       try {
         // 使用 where + first 避免类型问题
-        final matchingData = weeklyData.where((e) => e['date'] == dateStr);
+        final matchingData = weeklyMistakesData.where((e) => e['date'] == dateStr);
         if (matchingData.isNotEmpty) {
           final dayData = matchingData.first;
-          count = (dayData['count'] as num?)?.toInt() ?? 0;
+          mistakeCount = (dayData['count'] as num?)?.toInt() ?? 0;
         }
       } catch (e) {
-        count = 0;
+        mistakeCount = 0;
       }
+      
+      // 查找该日期的复习数据
+      final reviewCount = reviewDataMap[dateStr] ?? 0;
+      
+      print('📊 日期: $dateStr, 错题: $mistakeCount, 复习: $reviewCount');
       
       result.add({
         'day': _getDayName(date.weekday),
         'date': dateStr,
-        'mistakeCount': count.toDouble(),
-        'practiceCount': 0.0, // 暂时没有练习数据
+        'mistakeCount': mistakeCount.toDouble(),
+        'practiceCount': reviewCount.toDouble(),
         'isToday': i == 0,
       });
     }
@@ -299,6 +350,7 @@ class StatsService {
       'accuracy': 0.0,
       'weeklyChartData': _getDefaultWeeklyData(),
       'weeklyMistakesData': [],
+      'weeklyReviewData': [],
       'usageDays': 0,
       'userName': '用户',
     };

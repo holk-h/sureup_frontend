@@ -73,12 +73,13 @@ class ReviewStateService {
       final masteryChange = updates['masteryChange'] as int;
       final intervalMultiplier = updates['intervalMultiplier'] as double;
       final resetConsecutive = updates['resetConsecutive'] as bool;
+      final isCorrect = updates['isCorrect'] as bool;
       
       // 3. 计算新的掌握度（0-100之间）
       int newMasteryScore = (currentMasteryScore + masteryChange).clamp(0, 100);
       
-      // 4. 计算新的连续答对次数
-      int newConsecutiveCorrect = resetConsecutive ? 0 : consecutiveCorrect + 1;
+      // 4. 计算新的连续答对次数（只有真正"答对"才+1）
+      int newConsecutiveCorrect = resetConsecutive ? 0 : (isCorrect ? consecutiveCorrect + 1 : consecutiveCorrect);
       
       // 5. 计算新的间隔
       int newInterval = _calculateNewInterval(
@@ -99,6 +100,13 @@ class ReviewStateService {
       
       // 8. 准备更新数据
       final now = DateTime.now();
+      
+      // 统计正确/错误次数
+      final currentTotalCorrect = reviewState?.totalCorrect ?? 0;
+      final currentTotalWrong = reviewState?.totalWrong ?? 0;
+      final newTotalCorrect = isCorrect ? currentTotalCorrect + 1 : currentTotalCorrect;
+      final newTotalWrong = resetConsecutive ? currentTotalWrong + 1 : currentTotalWrong;
+      
       final data = {
         'masteryScore': newMasteryScore,
         'currentInterval': newInterval,
@@ -107,6 +115,8 @@ class ReviewStateService {
         'status': newStatus.name,
         'consecutiveCorrect': newConsecutiveCorrect,
         'totalReviews': (reviewState?.totalReviews ?? 0) + 1,
+        'totalCorrect': newTotalCorrect,
+        'totalWrong': newTotalWrong,
       };
       
       // 9. 更新或创建文档
@@ -122,6 +132,8 @@ class ReviewStateService {
         print('✅ 复习状态已更新:');
         print('   掌握度: $currentMasteryScore → $newMasteryScore (${masteryChange > 0 ? '+' : ''}$masteryChange)');
         print('   状态: ${currentStatus.displayName} → ${newStatus.displayName}');
+        print('   连续答对: $consecutiveCorrect → $newConsecutiveCorrect');
+        print('   正确率: $newTotalCorrect/${newTotalCorrect + newTotalWrong}');
         print('   间隔: $currentInterval → $newInterval 天');
         print('   下次复习: ${nextReviewDate.toString().split(' ')[0]}');
         
@@ -133,6 +145,8 @@ class ReviewStateService {
           status: newStatus,
           consecutiveCorrect: newConsecutiveCorrect,
           totalReviews: reviewState.totalReviews + 1,
+          totalCorrect: newTotalCorrect,
+          totalWrong: newTotalWrong,
           updatedAt: now,
         );
       } else {
@@ -174,20 +188,23 @@ class ReviewStateService {
     int masteryChange = 0;
     double intervalMultiplier = 1.0;
     bool resetConsecutive = false;
+    bool isCorrect = false; // 是否算作"答对"
 
     switch (status) {
       case ReviewStatus.newLearning:
         switch (feedback) {
           case '完全看懂了':
-            masteryChange = 25;
-            intervalMultiplier = 3.0; // 1天 -> 3天
+            masteryChange = 40; // 提高增量，加快进度
+            intervalMultiplier = 2.0; // 1天 -> 2天
+            isCorrect = true;
             break;
           case '大致理解了':
-            masteryChange = 15;
-            intervalMultiplier = 1.5;
+            masteryChange = 25; // 提高增量
+            intervalMultiplier = 1.5; // 1天 -> 1-2天
+            isCorrect = true;
             break;
           case '还是不太懂':
-            masteryChange = 5;
+            masteryChange = 10; // 稍微提高一点
             intervalMultiplier = 1.0; // 保持1天
             resetConsecutive = true;
             break;
@@ -197,15 +214,17 @@ class ReviewStateService {
       case ReviewStatus.reviewing:
         switch (feedback) {
           case '一看就会了':
-            masteryChange = 20;
+            masteryChange = 30; // 提高增量
             intervalMultiplier = 2.0;
+            isCorrect = true;
             break;
           case '想了会儿才懂':
-            masteryChange = 12;
-            intervalMultiplier = 1.5;
+            masteryChange = 15; // 提高增量
+            intervalMultiplier = 1.3;
+            isCorrect = true;
             break;
           case '完全想不起来':
-            masteryChange = -10;
+            masteryChange = -15; // 降得更多
             intervalMultiplier = 0.0; // 重置为3天
             resetConsecutive = true;
             break;
@@ -215,15 +234,17 @@ class ReviewStateService {
       case ReviewStatus.mastered:
         switch (feedback) {
           case '做对了':
-            masteryChange = 10;
+            masteryChange = 5; // 保持即可
             intervalMultiplier = 2.0; // 30天 -> 60天 -> 90天
+            isCorrect = true;
             break;
           case '做错了但看懂了':
-            masteryChange = -5;
-            intervalMultiplier = 0.5; // 缩短到15天
+            masteryChange = -10;
+            intervalMultiplier = 0.5; // 缩短间隔
+            resetConsecutive = true;
             break;
           case '还是不太会':
-            masteryChange = -20;
+            masteryChange = -30; // 降得更多
             intervalMultiplier = 0.0; // 重置为3天，可能降级
             resetConsecutive = true;
             break;
@@ -235,6 +256,7 @@ class ReviewStateService {
       'masteryChange': masteryChange,
       'intervalMultiplier': intervalMultiplier,
       'resetConsecutive': resetConsecutive,
+      'isCorrect': isCorrect,
     };
   }
 
@@ -271,6 +293,11 @@ class ReviewStateService {
   }
 
   /// 判断状态转换
+  /// 
+  /// 新逻辑（更合理）：
+  /// - newLearning → reviewing：完成第一次复习且掌握度 ≥ 40%
+  /// - reviewing → mastered：连续答对 ≥ 2次 且掌握度 ≥ 70%
+  /// - 降级：掌握度过低时降级
   ReviewStatus _determineNewStatus({
     required ReviewStatus currentStatus,
     required int newMasteryScore,
@@ -278,26 +305,26 @@ class ReviewStateService {
   }) {
     switch (currentStatus) {
       case ReviewStatus.newLearning:
-        // 掌握度 ≥ 60% → reviewing
-        if (newMasteryScore >= 60) {
+        // 只要掌握度达到40%就进入复习阶段（更容易进入）
+        if (newMasteryScore >= 40) {
           return ReviewStatus.reviewing;
         }
         return ReviewStatus.newLearning;
 
       case ReviewStatus.reviewing:
-        // 掌握度 ≥ 85% 且连续答对 5 次 → mastered
-        if (newMasteryScore >= 85 && consecutiveCorrect >= 5) {
+        // 连续答对2次且掌握度≥70%就可以掌握（大幅降低要求）
+        if (consecutiveCorrect >= 2 && newMasteryScore >= 70) {
           return ReviewStatus.mastered;
         }
-        // 掌握度 < 60% → newLearning
-        if (newMasteryScore < 60) {
+        // 掌握度低于40%降级到新学习
+        if (newMasteryScore < 40) {
           return ReviewStatus.newLearning;
         }
         return ReviewStatus.reviewing;
 
       case ReviewStatus.mastered:
-        // 掌握度 < 85% → reviewing
-        if (newMasteryScore < 85) {
+        // 掌握度低于60%降级到复习中
+        if (newMasteryScore < 60) {
           return ReviewStatus.reviewing;
         }
         return ReviewStatus.mastered;

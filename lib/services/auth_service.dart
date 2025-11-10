@@ -365,6 +365,88 @@ class AuthService {
     }
   }
 
+  /// 更新每周复习数据（用于统计图表）
+  Future<void> updateWeeklyReviewData(int questionCount) async {
+    try {
+      if (_userId == null) {
+        throw Exception('用户未登录');
+      }
+      
+      // 重新加载当前profile以获取最新数据
+      await reloadUserProfile();
+      
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final todayStr = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      
+      // 解析现有数据
+      List<Map<String, dynamic>> weeklyData = [];
+      if (_currentProfile?.weeklyReviewData != null && _currentProfile!.weeklyReviewData!.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(_currentProfile!.weeklyReviewData!);
+          if (decoded is List) {
+            weeklyData = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+          }
+        } catch (e) {
+          print('⚠️ 解析 weeklyReviewData 失败: $e');
+        }
+      }
+      
+      // 查找今天的记录
+      int todayIndex = -1;
+      for (int i = 0; i < weeklyData.length; i++) {
+        if (weeklyData[i]['date'] == todayStr) {
+          todayIndex = i;
+          break;
+        }
+      }
+      
+      // 更新或添加今天的记录
+      if (todayIndex >= 0) {
+        weeklyData[todayIndex]['count'] = (weeklyData[todayIndex]['count'] as int? ?? 0) + questionCount;
+      } else {
+        weeklyData.add({
+          'date': todayStr,
+          'count': questionCount,
+        });
+      }
+      
+      // 只保留最近7天的数据
+      final sevenDaysAgo = today.subtract(const Duration(days: 6));
+      weeklyData = weeklyData.where((entry) {
+        try {
+          final entryDate = DateTime.parse(entry['date'] as String);
+          return entryDate.isAfter(sevenDaysAgo.subtract(const Duration(days: 1))) || 
+                 entryDate.isAtSameMomentAs(sevenDaysAgo);
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+      
+      // 按日期排序
+      weeklyData.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+      
+      // 转换为JSON字符串
+      final weeklyDataStr = jsonEncode(weeklyData);
+      
+      // 更新到数据库
+      await _databases.updateDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.usersCollectionId,
+        documentId: _userId!,
+        data: {
+          'weeklyReviewData': weeklyDataStr,
+          'lastActiveAt': DateTime.now().toIso8601String(),
+        },
+      );
+      
+      print('✅ 更新 weeklyReviewData 成功: $weeklyDataStr');
+    } catch (e) {
+      print('⚠️ 更新 weeklyReviewData 失败: $e');
+      // 不抛出异常，避免影响用户体验
+    }
+  }
+
   /// 尝试从本地恢复登录状态
   Future<bool> tryRestoreSession() async {
     try {

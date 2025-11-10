@@ -205,6 +205,10 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
       final userId = authProvider.userProfile?.id;
       
       if (userId != null) {
+        // 初始化 ReviewStateService
+        final client = authProvider.authService.client;
+        _reviewStateService.initialize(client);
+        
         // 综合所有题目的反馈，更新知识点的复习状态
         // 策略：取最后一题的反馈作为整体反馈（因为用户做完所有题后的感受更准确）
         final lastFeedback = _userAnswers[_currentQuestionIndex];
@@ -217,10 +221,11 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
           );
           
           // 更新状态
+          // 注意：优先使用数据库中的最新 status，因为任务项中的 status 可能已过时
           await _reviewStateService.updateReviewState(
             userId: userId,
             knowledgePointId: _currentItem.knowledgePointId,
-            currentStatus: _currentItem.status,
+            currentStatus: currentState?.status ?? _currentItem.status,
             currentMasteryScore: currentState?.masteryScore ?? 0,
             currentInterval: currentState?.currentInterval ?? 1,
             consecutiveCorrect: currentState?.consecutiveCorrect ?? 0,
@@ -972,10 +977,10 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     return Text(
       promptText,
       style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
     );
   }
 
@@ -1092,9 +1097,9 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                 _currentSelection == '还是不太会',
                 () => _handleUnderstanding('还是不太会'),
               ),
-            ),
-          ],
-        );
+        ),
+      ],
+    );
     }
   }
 
@@ -1444,7 +1449,7 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
           color: CupertinoColors.systemBackground,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Column(
+          child: Column(
           children: [
             // 头部
             Container(
@@ -1499,26 +1504,26 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(16),
-                children: question.options!.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final option = entry.value;
-                  // 提取选项的真实标识符（如果选项以A.、B.等开头）
-                  final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
-                  final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
-                  final optionContent = optionMatch?.group(2) ?? option;
+            children: question.options!.asMap().entries.map((entry) {
+              final index = entry.key;
+              final option = entry.value;
+              // 提取选项的真实标识符（如果选项以A.、B.等开头）
+              final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
+              final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
+              final optionContent = optionMatch?.group(2) ?? option;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _updateQuestionAnswer(question, optionLabel, null);
-                      },
-                      child: Container(
-                        width: double.infinity,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _updateQuestionAnswer(question, optionLabel, null);
+                },
+                child: Container(
+                  width: double.infinity,
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
+                  decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
@@ -1526,55 +1531,55 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                             width: 1,
                           ),
                           boxShadow: AppColors.shadowSoft,
-                        ),
-                        child: Row(
+                  ),
+                  child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                shape: BoxShape.circle,
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
                                 border: Border.all(
                                   color: AppColors.primary.withOpacity(0.3),
                                   width: 1.5,
                                 ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  optionLabel,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            optionLabel,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: MathMarkdownText(
                                   text: optionContent,
-                                  style: const TextStyle(
+                          style: const TextStyle(
                                     fontSize: 15,
-                                    color: AppColors.textPrimary,
+                            color: AppColors.textPrimary,
                                     height: 1.4,
                                   ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
+                    ],
+                        ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          ),
+        ],
         ),
       ),
     );

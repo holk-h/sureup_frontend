@@ -1073,18 +1073,21 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
                 children: [
                   // 加载中动画
                   if (_isGenerating && _generatedText.isEmpty)
-                    const Column(
-                      children: [
-                        CupertinoActivityIndicator(radius: 14),
-                        SizedBox(height: 12),
-                        Text(
-                          'AI 正在分析中...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
+                    const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CupertinoActivityIndicator(radius: 14),
+                          SizedBox(height: 12),
+                          Text(
+                            'AI 正在分析中...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     )
                   // 显示生成的内容
                   else if (_generatedText.isNotEmpty)

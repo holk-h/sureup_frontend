@@ -82,9 +82,9 @@ class _WeeklyChartCardState extends State<WeeklyChartCard>
           dataKey: 'mistakeCount',
         ),
         const SizedBox(height: 16),
-        // 练习题目图表
+        // 复习题目图表
         _buildChartCard(
-          title: '练习题目',
+          title: '复习题目',
           color: AppColors.accent,
           dataKey: 'practiceCount',
         ),

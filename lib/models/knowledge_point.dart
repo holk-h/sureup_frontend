@@ -37,6 +37,7 @@ class KnowledgePoint {
   // 统计数据
   final int mistakeCount; // 错题总数
   final int masteredCount; // 已掌握数量
+  final int? masteryScore; // 掌握度分数 (0-100)，由后端从 review_states 同步
   
   // 关联数据
   final List<String> questionIds; // 关联的题目ID列表
@@ -54,13 +55,22 @@ class KnowledgePoint {
     this.importance = KnowledgePointImportance.normal,
     this.mistakeCount = 0,
     this.masteredCount = 0,
+    this.masteryScore,
     this.questionIds = const [],
     this.lastMistakeAt,
   });
 
   /// 掌握率（0-100）
+  /// 优先使用后端计算的 masteryScore，如果没有则回退到简单计算
   int get masteryLevel {
-    if (mistakeCount == 0) return 100;
+    // 如果有后端同步的 masteryScore，优先使用
+    if (masteryScore != null) {
+      return masteryScore!;
+    }
+    
+    // 回退到基于错题数和掌握数的简单计算
+    // 如果没有错题记录，说明还没有开始学习，返回 0 而不是 100
+    if (mistakeCount == 0) return 0;
     return ((masteredCount / mistakeCount) * 100).round();
   }
 
@@ -79,6 +89,7 @@ class KnowledgePoint {
     'importance': importance.value,
     'mistakeCount': mistakeCount,
     'masteredCount': masteredCount,
+    'masteryScore': masteryScore,
     'questionIds': questionIds,
     'lastMistakeAt': lastMistakeAt?.toIso8601String(),
   };
@@ -114,6 +125,7 @@ class KnowledgePoint {
       importance: importance,
       mistakeCount: (json['mistakeCount'] as int?) ?? 0,
       masteredCount: (json['masteredCount'] as int?) ?? 0,
+      masteryScore: json['masteryScore'] as int?,
       questionIds: questionIds,
       lastMistakeAt: json['lastMistakeAt'] != null 
           ? DateTime.parse(json['lastMistakeAt'] as String).toLocal() 
@@ -132,6 +144,7 @@ class KnowledgePoint {
     KnowledgePointImportance? importance,
     int? mistakeCount,
     int? masteredCount,
+    int? masteryScore,
     List<String>? questionIds,
     DateTime? lastMistakeAt,
   }) => KnowledgePoint(
@@ -144,6 +157,7 @@ class KnowledgePoint {
     importance: importance ?? this.importance,
     mistakeCount: mistakeCount ?? this.mistakeCount,
     masteredCount: masteredCount ?? this.masteredCount,
+    masteryScore: masteryScore ?? this.masteryScore,
     questionIds: questionIds ?? this.questionIds,
     lastMistakeAt: lastMistakeAt ?? this.lastMistakeAt,
   );

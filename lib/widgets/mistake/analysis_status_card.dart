@@ -330,7 +330,7 @@ class AnalysisStatusCard extends StatelessWidget {
       case AnalysisStatus.processing:
         return '分析过程大约需要 10-15 秒，请稍候';
       case AnalysisStatus.ocrOK:
-        return '正在分析答案、知识点等信息，请稍候';
+        return '正在分析知识点等信息，请稍候';
       case AnalysisStatus.ocrWrong:
         return mistakeRecord.wrongReason ?? '已反馈识别错误，等待重新处理';
       case AnalysisStatus.completed:

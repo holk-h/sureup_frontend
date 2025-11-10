@@ -611,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen>
         
         const SizedBox(height: 12),
         
-        // 练习题目占位
+        // 复习题目占位
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -637,7 +637,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   const SizedBox(width: 8),
                   const Text(
-                    '练习题目',
+                    '复习题目',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

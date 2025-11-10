@@ -794,8 +794,39 @@ class _AnalysisScreenState extends State<AnalysisScreen> with WidgetsBindingObse
     final subjectColor = subject?.color ?? AppColors.subjectDefault;
     final subjectIcon = subject?.icon ?? '📚';
     
+    // 计算学科统计数据（用于显示错题数和薄弱点数）
     final subjectStats = _knowledgeService.calculateSubjectStats(points);
-    final avgMastery = subjectStats['avgMastery'] as int;
+    
+    // 优先从 UserProfile 的 subjectMasteryScores 获取后端聚合的掌握度
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final subjectMasteryScores = authProvider.userProfile?.subjectMasteryScores;
+    
+    // 尝试从后端同步的数据获取掌握度
+    // 需要同时尝试中文 key 和英文 key（因为后端可能用的是枚举 name）
+    int avgMastery = 0;
+    if (subjectMasteryScores != null) {
+      // 先尝试中文 key
+      if (subjectMasteryScores.containsKey(subjectName)) {
+        avgMastery = subjectMasteryScores[subjectName]!;
+        print('📊 [$subjectName] 使用后端掌握度(中文key): $avgMastery');
+      } 
+      // 再尝试英文 key（通过 Subject 枚举的 name）
+      else {
+        final subjectEnumName = subject?.name;
+        if (subjectEnumName != null && subjectMasteryScores.containsKey(subjectEnumName)) {
+          avgMastery = subjectMasteryScores[subjectEnumName]!;
+          print('📊 [$subjectName] 使用后端掌握度(英文key): $avgMastery');
+        } else {
+          // 如果后端数据不存在，回退到前端计算（兼容性）
+          avgMastery = subjectStats['avgMastery'] as int;
+          print('📊 [$subjectName] 使用前端计算掌握度: $avgMastery (知识点数: ${points.length})');
+        }
+      }
+    } else {
+      avgMastery = subjectStats['avgMastery'] as int;
+      print('📊 [$subjectName] 使用前端计算掌握度(无后端数据): $avgMastery');
+    }
+    
     final masteryColor = _getMasteryColor(avgMastery);
     
     return GestureDetector(
