@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../config/api_config.dart';
 import '../models/user_profile.dart';
 import 'local_storage_service.dart';
@@ -167,6 +168,124 @@ class AuthService {
       print('needsSetup: $needsSetup (isNewUser=$isNewUser, hasProfile=$hasProfile)'); // 调试
       return needsSetup;
     } catch (e) {
+      throw _handleAuthError(e);
+    }
+  }
+
+  /// 使用苹果登录
+  /// 
+  /// 返回 true 表示需要完善用户信息（新用户且没有档案）
+  Future<bool> signInWithApple() async {
+    try {
+      // 1. 调用苹果登录
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        // 如果需要使用 Service ID 而不是 Bundle ID，取消下面的注释
+        // webAuthenticationOptions: WebAuthenticationOptions(
+        //   clientId: 'com.example.sureup.signin',  // 你的 Service ID
+        //   redirectUri: Uri.parse('https://your-domain.com/callback'),
+        // ),
+      );
+      
+      print('苹果登录成功，User ID: ${credential.userIdentifier}'); // 调试
+      
+      // 验证必需字段
+      if (credential.identityToken == null || credential.identityToken!.isEmpty) {
+        throw Exception('未获取到有效的身份令牌');
+      }
+      
+      if (credential.userIdentifier == null || credential.userIdentifier!.isEmpty) {
+        throw Exception('未获取到用户标识');
+      }
+      
+      // 2. 构造请求体
+      final requestBody = {
+        'identityToken': credential.identityToken,
+        'userIdentifier': credential.userIdentifier,
+        'email': credential.email,
+        'givenName': credential.givenName,
+        'familyName': credential.familyName,
+      };
+      
+      print('苹果登录验证请求: ${requestBody.keys.toList()}'); // 调试
+      
+      // 3. 调用后端验证函数
+      final execution = await _functions.createExecution(
+        functionId: 'apple-signin',
+        body: jsonEncode(requestBody),
+      );
+      
+      // 4. 解析响应
+      final response = jsonDecode(execution.responseBody);
+      
+      if (response['success'] != true) {
+        throw Exception(response['message'] ?? '苹果登录验证失败');
+      }
+      
+      final data = response['data'];
+      final userId = data['userId'];
+      final isNewUser = data['isNewUser'] ?? false;
+      final hasProfile = data['hasProfile'] ?? false;
+      final sessionToken = data['sessionToken'];
+      final email = data['email'];
+      
+      print('苹果登录验证成功: userId=$userId, isNewUser=$isNewUser, hasProfile=$hasProfile'); // 调试
+      
+      // 5. 创建会话
+      if (sessionToken == null || sessionToken.toString().isEmpty) {
+        throw Exception('未获取到会话令牌，无法创建会话');
+      }
+      
+      try {
+        print('使用 Session Token 创建会话...'); // 调试
+        await _account.createSession(
+          userId: userId,
+          secret: sessionToken.toString(),
+        );
+        print('Session 创建成功'); // 调试
+      } catch (sessionError) {
+        print('创建 Session 失败: $sessionError'); // 调试
+        throw Exception('创建会话失败: ${sessionError.toString()}');
+      }
+      
+      // 6. 保存用户信息到内存
+      _userId = userId;
+      _userPhone = email;  // 对于苹果登录，我们用 email 代替 phone
+      
+      print('已保存用户信息: _userId=$_userId'); // 调试
+      
+      // 7. 如果有档案，加载档案信息
+      if (hasProfile) {
+        await _checkUserProfile(userId);
+      }
+      
+      // 8. 保存登录状态到本地
+      await _saveLoginState(userId, email ?? '');
+      
+      print('苹果登录状态已保存到本地'); // 调试
+      
+      // 9. 返回是否需要完善信息
+      final needsSetup = isNewUser && !hasProfile;
+      print('needsSetup: $needsSetup'); // 调试
+      return needsSetup;
+      
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // 用户取消登录或其他苹果登录特定错误
+      print('苹果登录授权失败: ${e.code} - ${e.message}'); // 调试
+      if (e.code == AuthorizationErrorCode.canceled) {
+        throw Exception('用户取消了登录');
+      } else if (e.code == AuthorizationErrorCode.failed) {
+        throw Exception('登录失败，请重试');
+      } else if (e.code == AuthorizationErrorCode.notHandled) {
+        throw Exception('登录未处理');
+      } else {
+        throw Exception('苹果登录失败: ${e.message}');
+      }
+    } catch (e) {
+      print('苹果登录失败: $e'); // 调试
       throw _handleAuthError(e);
     }
   }

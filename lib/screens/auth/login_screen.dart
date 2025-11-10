@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../config/colors.dart';
 import '../../services/auth_service.dart';
 import 'verification_screen.dart';
+import 'profile_setup_screen.dart';
+import '../home_screen.dart';
 
 /// 登录页面 - 手机号登录
 class LoginScreen extends StatefulWidget {
@@ -18,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _authService = AuthService();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isAppleSignInAvailable = false;
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -67,6 +72,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     
     // 检查是否需要恢复倒计时状态
     _checkAndRestoreCountdown();
+    
+    // 检查苹果登录是否可用
+    _checkAppleSignInAvailability();
+  }
+  
+  // 检查苹果登录可用性
+  Future<void> _checkAppleSignInAvailability() async {
+    if (!Platform.isIOS) {
+      return;
+    }
+    
+    try {
+      final isAvailable = await SignInWithApple.isAvailable();
+      setState(() {
+        _isAppleSignInAvailable = isAvailable;
+      });
+    } catch (e) {
+      print('检查苹果登录可用性失败: $e');
+      setState(() {
+        _isAppleSignInAvailable = false;
+      });
+    }
   }
 
   @override
@@ -169,6 +196,49 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
+  // 苹果登录
+  Future<void> _signInWithApple() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      // 调用苹果登录
+      final needsSetup = await _authService.signInWithApple();
+      
+      if (mounted) {
+        if (needsSetup) {
+          // 新用户，需要完善信息
+          Navigator.of(context).pushReplacement(
+            CupertinoPageRoute(
+              builder: (context) => const ProfileSetupScreen(),
+            ),
+          );
+        } else {
+          // 老用户，直接进入首页
+          Navigator.of(context).pushReplacement(
+            CupertinoPageRoute(
+              builder: (context) => const HomeScreen(),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   // 验证手机号格式
   bool _isValidPhone(String phone) {
     // 中国手机号：11位数字，1开头
@@ -212,6 +282,41 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       children: [
                         const SizedBox(height: 8),
                         _buildLoginForm(),
+                        const SizedBox(height: 24),
+                        
+                        // 分隔线
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: AppColors.divider,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                '或',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: AppColors.divider,
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // 苹果登录按钮（仅在 iOS 且可用时显示）
+                        if (_isAppleSignInAvailable) _buildAppleSignInButton(),
+                        
                         const SizedBox(height: 32),
                         _buildFooter(),
                         const SizedBox(height: 40),
@@ -426,6 +531,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 苹果登录按钮
+  Widget _buildAppleSignInButton() {
+    return Opacity(
+      opacity: _isLoading ? 0.6 : 1.0,
+      child: SignInWithAppleButton(
+        onPressed: _isLoading ? () {} : _signInWithApple,
+        text: '使用 Apple 登录',
+        height: 52,
+        borderRadius: BorderRadius.circular(12),
+        style: SignInWithAppleButtonStyle.black,
       ),
     );
   }

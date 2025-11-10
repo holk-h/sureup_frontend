@@ -23,6 +23,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   // 年级选项
   final List<Map<String, dynamic>> _grades = [
+    {'value': 1, 'label': '小一'},
+    {'value': 2, 'label': '小二'},
+    {'value': 3, 'label': '小三'},
+    {'value': 4, 'label': '小四'},
+    {'value': 5, 'label': '小五'},
+    {'value': 6, 'label': '小六'},
     {'value': 7, 'label': '初一'},
     {'value': 8, 'label': '初二'},
     {'value': 9, 'label': '初三'},
@@ -39,6 +45,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     {'id': 'english', 'name': '英语', 'icon': '🔤', 'color': AppColors.primary},
     {'id': 'chinese', 'name': '语文', 'icon': '📖', 'color': Color(0xFFEC4899)},
     {'id': 'biology', 'name': '生物', 'icon': '🌱', 'color': Color(0xFF10B981)},
+    {'id': 'politics', 'name': '政治', 'icon': '⚖️', 'color': Color(0xFFF97316)},
+    {'id': 'history', 'name': '历史', 'icon': '📜', 'color': Color(0xFFDC2626)},
+    {'id': 'geography', 'name': '地理', 'icon': '🌍', 'color': Color(0xFF14B8A6)},
   ];
 
   @override
