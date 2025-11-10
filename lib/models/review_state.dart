@@ -102,10 +102,10 @@ class ReviewState {
     masteryScore: json['masteryScore'] as int? ?? 0,
     currentInterval: json['currentInterval'] as int? ?? 1,
     nextReviewDate: json['nextReviewDate'] != null
-        ? DateTime.parse(json['nextReviewDate'] as String)
+        ? DateTime.parse(json['nextReviewDate'] as String).toLocal()
         : null,
     lastReviewDate: json['lastReviewDate'] != null
-        ? DateTime.parse(json['lastReviewDate'] as String)
+        ? DateTime.parse(json['lastReviewDate'] as String).toLocal()
         : null,
     totalReviews: json['totalReviews'] as int? ?? 0,
     consecutiveCorrect: json['consecutiveCorrect'] as int? ?? 0,
@@ -113,14 +113,14 @@ class ReviewState {
     totalWrong: json['totalWrong'] as int? ?? 0,
     isActive: json['isActive'] as bool? ?? true,
     createdAt: json['createdAt'] != null
-        ? DateTime.parse(json['createdAt'] as String)
+        ? DateTime.parse(json['createdAt'] as String).toLocal()
         : (json['\$createdAt'] != null
-            ? DateTime.parse(json['\$createdAt'] as String)
+            ? DateTime.parse(json['\$createdAt'] as String).toLocal()
             : DateTime.now()),
     updatedAt: json['updatedAt'] != null
-        ? DateTime.parse(json['updatedAt'] as String)
+        ? DateTime.parse(json['updatedAt'] as String).toLocal()
         : (json['\$updatedAt'] != null
-            ? DateTime.parse(json['\$updatedAt'] as String)
+            ? DateTime.parse(json['\$updatedAt'] as String).toLocal()
             : null),
   );
 

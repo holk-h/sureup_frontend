@@ -11,6 +11,7 @@ import '../services/mistake_service.dart';
 import '../services/knowledge_service.dart';
 import '../services/accumulated_analysis_service.dart';
 import '../providers/auth_provider.dart';
+import 'analysis_history_screen.dart';
 
 /// AI分析复盘页面 - 深度错题分析
 /// 
@@ -408,6 +409,37 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
             CupertinoButton.filled(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('去记录错题'),
+            ),
+            const SizedBox(height: 24),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (context) => const AnalysisHistoryScreen(),
+                  ),
+                );
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(
+                    CupertinoIcons.clock,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    '查看历史分析',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1134,43 +1166,93 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
           ),
         ),
         const SizedBox(height: AppConstants.spacingM),
-        // 次要按钮：查看错题
-        Container(
-          width: double.infinity,
-          height: 52,
-          decoration: BoxDecoration(
-            color: AppColors.cardBackground,
-            borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-            border: Border.all(
-              color: AppColors.accent,
-              width: 1.5,
-            ),
-          ),
-          child: CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: () {
-              // TODO: 跳转到错题列表
-            },
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  CupertinoIcons.doc_text,
-                  color: AppColors.accent,
-                  size: 20,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  '查看全部错题',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
+        // 次要按钮组
+        Row(
+          children: [
+            // 查看错题
+            Expanded(
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+                  border: Border.all(
                     color: AppColors.accent,
+                    width: 1.5,
                   ),
                 ),
-              ],
+                child: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    // TODO: 跳转到错题列表
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        CupertinoIcons.doc_text,
+                        color: AppColors.accent,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '查看错题',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: AppConstants.spacingM),
+            // 历史分析
+            Expanded(
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+                  border: Border.all(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
+                ),
+                child: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (context) => const AnalysisHistoryScreen(),
+                      ),
+                    );
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        CupertinoIcons.clock_fill,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '历史分析',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

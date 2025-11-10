@@ -30,14 +30,14 @@ class LearningMemory {
     userId: json['userId'] as String,
     weakPoints: (json['weakPoints'] as List<dynamic>?)?.cast<String>() ?? [],
     createdAt: json['createdAt'] != null
-        ? DateTime.parse(json['createdAt'] as String)
+        ? DateTime.parse(json['createdAt'] as String).toLocal()
         : (json['\$createdAt'] != null
-            ? DateTime.parse(json['\$createdAt'] as String)
+            ? DateTime.parse(json['\$createdAt'] as String).toLocal()
             : DateTime.now()),
     updatedAt: json['updatedAt'] != null
-        ? DateTime.parse(json['updatedAt'] as String)
+        ? DateTime.parse(json['updatedAt'] as String).toLocal()
         : (json['\$updatedAt'] != null
-            ? DateTime.parse(json['\$updatedAt'] as String)
+            ? DateTime.parse(json['\$updatedAt'] as String).toLocal()
             : null),
   );
 

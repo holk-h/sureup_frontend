@@ -43,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen>
   
   bool _isInitialized = false;
   bool _isLoading = false; // 防止重复加载
+  bool _isDataLoaded = false; // 数据是否已加载完成（用于避免图表闪烁）
   
   // 用于触发鼓励语和一言刷新的key
   Key _contentRefreshKey = UniqueKey();
@@ -142,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _contentRefreshKey = UniqueKey(); // 触发鼓励语和一言的重建
       _lastVisibleTime = DateTime.now();
+      _isDataLoaded = false; // 重置数据加载状态，避免图表闪烁
     });
     
     // 后台刷新统计数据
@@ -311,6 +313,7 @@ class _HomeScreenState extends State<HomeScreen>
           setState(() {
             _stats = _getDefaultStats();
             _isInitialized = true;
+            _isDataLoaded = true; // 未登录也标记为已加载
           });
         }
         return;
@@ -330,6 +333,7 @@ class _HomeScreenState extends State<HomeScreen>
         setState(() {
           _stats = stats;
           _isInitialized = true;
+          _isDataLoaded = true; // 标记数据已加载
         });
         
         final updateTime = DateTime.now().difference(loadStartTime).inMilliseconds;
@@ -338,6 +342,11 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {
       print('❌ 加载数据失败: $e');
       // 静默失败，使用默认数据
+      if (mounted) {
+        setState(() {
+          _isDataLoaded = true; // 即使失败也标记为已加载，避免一直显示加载中
+        });
+      }
     } finally {
       _isLoading = false;
     }
@@ -404,6 +413,8 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(height: AppConstants.spacingL),
                     
                     // 过去一周数据图表（使用 RepaintBoundary 隔离重绘）
+                    // 只有在数据加载完成后才显示，避免闪烁
+                    if (_isDataLoaded) ...[
                     _buildSectionHeader('📊 过去一周'),
                     const SizedBox(height: AppConstants.spacingM),
                     RepaintBoundary(
@@ -411,6 +422,12 @@ class _HomeScreenState extends State<HomeScreen>
                         weeklyData: weeklyData,
                       ),
                     ),
+                    ] else ...[
+                      // 数据加载中的占位符
+                      _buildSectionHeader('📊 过去一周'),
+                      const SizedBox(height: AppConstants.spacingM),
+                      _buildChartPlaceholder(),
+                    ],
                     
                     const SizedBox(height: AppConstants.spacingM),
                     
@@ -539,6 +556,107 @@ class _HomeScreenState extends State<HomeScreen>
         color: AppColors.textPrimary,
         letterSpacing: -0.5,
       ),
+    );
+  }
+
+  /// 图表加载占位符
+  Widget _buildChartPlaceholder() {
+    return Column(
+      children: [
+        // 错题记录占位
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.divider,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '错题记录',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // 图表占位
+              Container(
+                height: 200,
+                alignment: Alignment.center,
+                child: const CupertinoActivityIndicator(),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // 练习题目占位
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.divider,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '练习题目',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // 图表占位
+              Container(
+                height: 200,
+                alignment: Alignment.center,
+                child: const CupertinoActivityIndicator(),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

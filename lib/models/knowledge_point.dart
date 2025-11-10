@@ -116,7 +116,7 @@ class KnowledgePoint {
       masteredCount: (json['masteredCount'] as int?) ?? 0,
       questionIds: questionIds,
       lastMistakeAt: json['lastMistakeAt'] != null 
-          ? DateTime.parse(json['lastMistakeAt'] as String) 
+          ? DateTime.parse(json['lastMistakeAt'] as String).toLocal() 
           : null,
     );
   }

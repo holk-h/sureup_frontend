@@ -152,12 +152,12 @@ class Question {
       importance: json['importance'] as String?,
       solvingHint: json['solvingHint'] as String?,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? DateTime.parse(json['createdAt'] as String).toLocal()
           : (json['\$createdAt'] != null
-              ? DateTime.parse(json['\$createdAt'] as String)
+              ? DateTime.parse(json['\$createdAt'] as String).toLocal()
               : DateTime.now()),
     updatedAt: json['updatedAt'] != null 
-        ? DateTime.parse(json['updatedAt'] as String) 
+        ? DateTime.parse(json['updatedAt'] as String).toLocal() 
         : null,
     metadata: json['metadata'] as Map<String, dynamic>?,
   );

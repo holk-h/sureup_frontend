@@ -127,6 +127,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             
             const SizedBox(height: AppConstants.spacingL),
             
+            // 时区设置部分
+            _buildSectionTitle('时区设置'),
+            const SizedBox(height: AppConstants.spacingM),
+            _buildSettingsCard([
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, child) {
+                  final currentTimezone = authProvider.userProfile?.timezone ?? 'Asia/Shanghai';
+                  final timezoneName = _getTimezoneDisplayName(currentTimezone);
+                  
+                  return _buildSettingItem(
+                    icon: CupertinoIcons.globe,
+                    title: '时区',
+                    subtitle: timezoneName,
+                    color: AppColors.accent,
+                    onTap: () {
+                      _showTimezoneSelector(context);
+                    },
+                  );
+                },
+              ),
+            ]),
+            
+            const SizedBox(height: AppConstants.spacingL),
+            
             // 学习设置部分
             _buildSectionTitle('学习设置'),
             const SizedBox(height: AppConstants.spacingM),
@@ -753,6 +777,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+  
+  // 获取时区的显示名称
+  String _getTimezoneDisplayName(String timezone) {
+    const timezoneMap = {
+      'Asia/Shanghai': '北京时间 (UTC+8)',
+      'Asia/Tokyo': '东京时间 (UTC+9)',
+      'Europe/London': '伦敦时间 (UTC+0)',
+      'America/New_York': '纽约时间 (UTC-5)',
+      'America/Los_Angeles': '洛杉矶时间 (UTC-8)',
+    };
+    return timezoneMap[timezone] ?? timezone;
+  }
+  
+  // 显示时区选择器
+  Future<void> _showTimezoneSelector(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentTimezone = authProvider.userProfile?.timezone ?? 'Asia/Shanghai';
+    
+    // 常用时区列表
+    final timezones = [
+      {'id': 'Asia/Shanghai', 'name': '北京时间 (UTC+8)'},
+      {'id': 'Asia/Tokyo', 'name': '东京时间 (UTC+9)'},
+      {'id': 'Europe/London', 'name': '伦敦时间 (UTC+0)'},
+      {'id': 'America/New_York', 'name': '纽约时间 (UTC-5)'},
+      {'id': 'America/Los_Angeles', 'name': '洛杉矶时间 (UTC-8)'},
+    ];
+    
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (context) => Container(
+        height: 400,
+        color: CupertinoColors.systemBackground,
+        child: Column(
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.divider.withOpacity(0.3),
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: Text(
+                      '取消',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  const Text(
+                    '选择时区',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 60), // 平衡布局
+                ],
+              ),
+            ),
+            // 时区列表
+            Expanded(
+              child: ListView.builder(
+                itemCount: timezones.length,
+                itemBuilder: (context, index) {
+                  final zone = timezones[index];
+                  final zoneId = zone['id']!;
+                  final zoneName = zone['name']!;
+                  final isSelected = currentTimezone == zoneId;
+                  
+                  return GestureDetector(
+                    onTap: () async {
+                      Navigator.of(context).pop();
+                      await _updateTimezone(zoneId, authProvider);
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                            ? AppColors.primary.withOpacity(0.1)
+                            : CupertinoColors.systemBackground,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.divider.withOpacity(0.2),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              zoneName,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isSelected 
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                                fontWeight: isSelected 
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              CupertinoIcons.checkmark_alt,
+                              size: 20,
+                              color: AppColors.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // 更新时区
+  Future<void> _updateTimezone(String timezone, AuthProvider authProvider) async {
+    try {
+      await authProvider.updateProfile(timezone: timezone);
+      
+      if (mounted) {
+        _showSuccessMessage('时区已更新为 ${_getTimezoneDisplayName(timezone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('更新失败', '$e');
+      }
+    }
   }
 }
 

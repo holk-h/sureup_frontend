@@ -21,6 +21,12 @@ export 'review_state.dart';
 export 'learning_memory.dart';
 export 'daily_task.dart';
 
+// 积累分析
+export 'accumulated_analysis.dart';
+
+// 题目生成
+export 'question_generation_task.dart';
+
 // 第三方服务
 export 'hitokoto.dart';
 

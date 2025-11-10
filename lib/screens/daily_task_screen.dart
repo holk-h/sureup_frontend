@@ -23,14 +23,24 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
   @override
   void initState() {
     super.initState();
+    // 延迟加载，等待页面切换动画完全结束
+    Future.delayed(const Duration(milliseconds: 30), () {
+      if (mounted) {
     _loadTodayTask();
+      }
+    });
   }
 
   Future<void> _loadTodayTask() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    // 让 UI 先渲染加载状态
+    await Future.delayed(const Duration(milliseconds: 30));
 
     try {
       final task = await _taskService.getTodayTask();
@@ -77,6 +87,14 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
       navigationBar: CupertinoNavigationBar(
         backgroundColor: CupertinoColors.systemBackground.withOpacity(0.9),
         border: null,
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.pop(context),
+          child: const Icon(
+            CupertinoIcons.back,
+            color: AppColors.textPrimary,
+          ),
+        ),
         middle: const Text(
           '今日任务',
           style: TextStyle(
@@ -100,9 +118,7 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CupertinoActivityIndicator(),
-      );
+      return _buildLoadingView();
     }
 
     if (_errorMessage != null) {
@@ -113,7 +129,8 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
       return _buildEmptyView();
     }
 
-    return CustomScrollView(
+    return SafeArea(
+      child: CustomScrollView(
         slivers: [
           // 顶部安全区域
           const SliverToBoxAdapter(
@@ -151,6 +168,7 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
             child: SizedBox(height: 100),
           ),
         ],
+      ),
       );
   }
 
@@ -307,8 +325,180 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
     );
   }
 
+  Widget _buildLoadingView() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            
+            // 进度卡片占位
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppColors.coloredShadow(
+                  AppColors.primary,
+                  opacity: 0.15,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.calendar_today,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        '今日进度',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 32,
+                              width: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '加载中...',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: CupertinoActivityIndicator(
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 任务列表占位
+            Expanded(
+              child: ListView.builder(
+                itemCount: 3,
+                itemBuilder: (context, index) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppColors.shadowSoft,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.divider,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    height: 16,
+                                    width: double.infinity * 0.6,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.divider,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    height: 12,
+                                    width: double.infinity * 0.4,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.divider,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyView() {
-    return Center(
+    return SafeArea(
+      child: Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
@@ -360,12 +550,14 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 
   Widget _buildErrorView() {
-    return Center(
+    return SafeArea(
+      child: Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
@@ -417,8 +609,8 @@ class _DailyTaskScreenState extends State<DailyTaskScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 }
-

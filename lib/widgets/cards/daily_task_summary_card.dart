@@ -4,7 +4,7 @@ import '../../config/colors.dart';
 import '../../models/daily_task.dart';
 
 /// 每日任务摘要卡片 - 显示在首页
-class DailyTaskSummaryCard extends StatelessWidget {
+class DailyTaskSummaryCard extends StatefulWidget {
   final DailyTask? task;
   final bool isLoading;
   final VoidCallback onTap;
@@ -19,17 +19,47 @@ class DailyTaskSummaryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
-      return _buildLoadingCard();
-    }
+  State<DailyTaskSummaryCard> createState() => _DailyTaskSummaryCardState();
+}
 
-    // 计算显示数据
-    final completedCount = task?.completedCount ?? 0;
-    final totalItems = task?.items.length ?? 0;
-    final progress = task?.progress ?? 0.0;
-    final isCompleted = task?.isCompleted ?? false;
-    final hasTask = task != null && totalItems > 0;
+class _DailyTaskSummaryCardState extends State<DailyTaskSummaryCard> 
+    with SingleTickerProviderStateMixin {
+  bool _showKnowledgePoints = false;
+  bool _wasLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _wasLoading = widget.isLoading;
+  }
+
+  @override
+  void didUpdateWidget(DailyTaskSummaryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 检测从加载状态到加载完成的转换
+    if (_wasLoading && !widget.isLoading && widget.task != null) {
+      // 延迟一点再展开，让其他数据先更新
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          setState(() {
+            _showKnowledgePoints = true;
+          });
+        }
+      });
+    }
+    _wasLoading = widget.isLoading;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 计算显示数据（加载时使用占位数据）
+    final isLoading = widget.isLoading;
+    final task = widget.task;
+    final completedCount = isLoading ? 0 : (task?.completedCount ?? 0);
+    final totalItems = isLoading ? 0 : (task?.items.length ?? 0);
+    final progress = isLoading ? 0.0 : (task?.progress ?? 0.0);
+    final isCompleted = isLoading ? false : (task?.isCompleted ?? false);
+    final hasTask = !isLoading && task != null && totalItems > 0;
 
     // 计算题目统计
     int totalQuestions = 0;
@@ -38,8 +68,8 @@ class DailyTaskSummaryCard extends StatelessWidget {
     int reviewingCount = 0;
     int masteredCount = 0;
 
-    if (task != null && task!.items.isNotEmpty) {
-      for (var item in task!.items) {
+    if (task != null && task.items.isNotEmpty) {
+      for (var item in task.items) {
         totalQuestions += item.totalQuestions;
         if (item.isCompleted) {
           completedQuestions += item.totalQuestions;
@@ -60,7 +90,7 @@ class DailyTaskSummaryCard extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -110,7 +140,7 @@ class DailyTaskSummaryCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          hasTask ? '每天进步一点点' : '暂无任务',
+                          isLoading ? '加载中...' : (hasTask ? '每天进步一点点' : '暂无任务'),
                           style: const TextStyle(
                             color: AppColors.textTertiary,
                             fontSize: 12,
@@ -119,7 +149,13 @@ class DailyTaskSummaryCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (isCompleted && hasTask)
+                  if (isLoading)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CupertinoActivityIndicator(radius: 8),
+                    )
+                  else if (isCompleted && hasTask)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -201,13 +237,13 @@ class DailyTaskSummaryCard extends StatelessWidget {
                   Expanded(
                     child: _buildStatItem(
                       icon: CupertinoIcons.flame_fill,
-                      iconColor: continuousDays >= 7 
+                      iconColor: widget.continuousDays >= 7 
                           ? const Color(0xFFFF6B35) // 橙红色
-                          : continuousDays >= 3 
+                          : widget.continuousDays >= 3 
                               ? const Color(0xFFFF8C42) // 橙色
                               : const Color(0xFFFFA500), // 浅橙色
                       label: '连续天数',
-                      value: '$continuousDays',
+                      value: '${widget.continuousDays}',
                       suffix: '天',
                       isStreak: true,
                     ),
@@ -287,10 +323,18 @@ class DailyTaskSummaryCard extends StatelessWidget {
                 ),
               ],
 
-              // 知识点预览（最多显示3个）
-              if (hasTask && task!.items.isNotEmpty) ...[
+              // 知识点预览（最多显示3个）- 带展开动画
+              if (hasTask && task.items.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Container(
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedOpacity(
+                    opacity: _showKnowledgePoints ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeIn,
+                    child: _showKnowledgePoints
+                        ? Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.background,
@@ -329,7 +373,7 @@ class DailyTaskSummaryCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      ...task!.items.take(3).map((item) => Padding(
+                              ...task.items.take(3).map((item) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: [
@@ -381,11 +425,11 @@ class DailyTaskSummaryCard extends StatelessWidget {
                           ],
                         ),
                       )),
-                      if (task!.items.length > 3)
+                              if (task.items.length > 3)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            '还有 ${task!.items.length - 3} 个知识点...',
+                                    '还有 ${task.items.length - 3} 个知识点...',
                             style: const TextStyle(
                               color: AppColors.textTertiary,
                               fontSize: 11,
@@ -394,6 +438,9 @@ class DailyTaskSummaryCard extends StatelessWidget {
                           ),
                         ),
                     ],
+                          ),
+                        )
+                        : const SizedBox.shrink(),
                   ),
                 ),
               ],
@@ -522,22 +569,5 @@ class DailyTaskSummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadingCard() {
-    return Container(
-      padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.divider,
-          width: 1,
-        ),
-        boxShadow: AppColors.shadowSoft,
-      ),
-      child: const Center(
-        child: CupertinoActivityIndicator(),
-      ),
-    );
-  }
 }
 

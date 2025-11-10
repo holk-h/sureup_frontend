@@ -86,21 +86,23 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
   }
   
   // 预加载指定页面的数据
-  Future<void> _preloadPage(int pageIndex) async {
+  Future<void> _preloadPage(int pageIndex, {bool forceReload = false}) async {
     if (pageIndex < 0 || pageIndex >= widget.mistakeRecordIds.length) return;
     
     final recordId = widget.mistakeRecordIds[pageIndex];
     
-    // 如果已经加载过，直接返回
-    if (_previewService.getCachedRecord(recordId) != null) {
+    // 如果已经加载过且不强制重新加载，直接返回
+    if (!forceReload && _previewService.getCachedRecord(recordId) != null) {
       return;
     }
     
     // 设置加载状态（只在首次加载时）
-    setState(() {
-      _pageLoadingStatus[pageIndex] = true;
-      _pageErrorStatus[pageIndex] = null;
-    });
+    if (!forceReload) {
+      setState(() {
+        _pageLoadingStatus[pageIndex] = true;
+        _pageErrorStatus[pageIndex] = null;
+      });
+    }
     
     try {
       // 使用服务加载记录数据
@@ -108,9 +110,11 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
       
       if (!mounted) return;
       
-      setState(() {
-        _pageLoadingStatus[pageIndex] = false;
-      });
+      if (!forceReload) {
+        setState(() {
+          _pageLoadingStatus[pageIndex] = false;
+        });
+      }
       
       if (record == null) {
         throw Exception('错题记录不存在');
@@ -174,6 +178,20 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
         if (record.analysisStatus == AnalysisStatus.pending) {
           print('   🔄 状态变回 pending，重置进度条');
           _progressStarted[record.id] = false;
+        }
+        
+        // 如果状态变为 ocrOK 或 completed，确保该记录的 Question 数据已加载
+        if (record.analysisStatus == AnalysisStatus.ocrOK || 
+            record.analysisStatus == AnalysisStatus.completed) {
+          final question = _previewService.getCachedQuestion(record.id);
+          if (question == null) {
+            print('   📥 状态已完成但 Question 未加载，触发加载: ${record.id}');
+            // 找到该记录对应的页面索引
+            final pageIndex = widget.mistakeRecordIds.indexOf(record.id);
+            if (pageIndex != -1) {
+              _preloadPage(pageIndex, forceReload: true);
+            }
+          }
         }
         
         print('   🎨 调用 setState 刷新 UI');
@@ -504,12 +522,21 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
   
   // 记录上一次的分析状态，用于检测状态变化
   AnalysisStatus? _previousAnalysisStatus;
+  bool _previousHasQuestion = false; // 记录上一次是否有 question 数据
   
   @override
   void initState() {
     super.initState();
     _setupDetailsAnimation();
     _previousAnalysisStatus = widget.mistakeRecord?.analysisStatus;
+    _previousHasQuestion = widget.question != null;
+    
+    // 如果页面初始化时记录已经是 completed 状态且有 question 数据，直接完成动画
+    // 这种情况发生在：用户滑到一个已经分析完成的页面
+    if (widget.mistakeRecord?.analysisStatus == AnalysisStatus.completed &&
+        widget.question != null) {
+      _detailsAnimationController.value = 1.0; // 直接设置为完成状态
+    }
   }
   
   void _setupDetailsAnimation() {
@@ -552,12 +579,16 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
   // 检测分析状态变化，触发动画
   void _checkAnalysisStatusChange() {
     final currentStatus = widget.mistakeRecord?.analysisStatus;
+    final currentHasQuestion = widget.question != null;
     
-    // 如果从非完成状态变为完成状态，且有题目数据，启动动画
-    if (_previousAnalysisStatus != AnalysisStatus.completed &&
-        currentStatus == AnalysisStatus.completed &&
-        widget.question != null) {
-      
+    // 两种情况需要启动动画：
+    // 1. 状态从非完成变为完成，且有 question 数据
+    // 2. 状态已经是完成，但 question 数据刚刚加载完成（从无到有）
+    final shouldStartAnimation = currentStatus == AnalysisStatus.completed &&
+        currentHasQuestion &&
+        (_previousAnalysisStatus != AnalysisStatus.completed || !_previousHasQuestion);
+    
+    if (shouldStartAnimation && _detailsAnimationController.value == 0.0) {
       // 延迟一点启动动画，让分析状态卡片先消失
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 200), () {
@@ -569,6 +600,7 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
     }
     
     _previousAnalysisStatus = currentStatus;
+    _previousHasQuestion = currentHasQuestion;
   }
 
   @override

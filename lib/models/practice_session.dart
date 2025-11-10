@@ -40,7 +40,7 @@ class QuestionResult {
     userAnswer: json['userAnswer'] as String?,
     isCorrect: json['isCorrect'] as bool,
     timeSpent: json['timeSpent'] as int,
-    answeredAt: DateTime.parse(json['answeredAt'] as String),
+    answeredAt: DateTime.parse(json['answeredAt'] as String).toLocal(),
   );
 }
 
@@ -156,9 +156,9 @@ class PracticeSession {
     results: (json['results'] as List<dynamic>)
         .map((r) => QuestionResult.fromJson(r as Map<String, dynamic>))
         .toList(),
-    startedAt: DateTime.parse(json['startedAt'] as String),
+    startedAt: DateTime.parse(json['startedAt'] as String).toLocal(),
     completedAt: json['completedAt'] != null 
-        ? DateTime.parse(json['completedAt'] as String) 
+        ? DateTime.parse(json['completedAt'] as String).toLocal() 
         : null,
     isCompleted: json['isCompleted'] as bool,
     aiAnalysis: json['aiAnalysis'] as String?,

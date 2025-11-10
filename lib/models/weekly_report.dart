@@ -125,8 +125,8 @@ class WeeklyReport {
   factory WeeklyReport.fromJson(Map<String, dynamic> json) => WeeklyReport(
     id: json['id'] as String,
     userId: json['userId'] as String,
-    weekStart: DateTime.parse(json['weekStart'] as String),
-    weekEnd: DateTime.parse(json['weekEnd'] as String),
+    weekStart: DateTime.parse(json['weekStart'] as String).toLocal(),
+    weekEnd: DateTime.parse(json['weekEnd'] as String).toLocal(),
     totalMistakes: json['totalMistakes'] as int,
     totalReviews: json['totalReviews'] as int,
     totalPracticeSessions: json['totalPracticeSessions'] as int,
@@ -140,7 +140,7 @@ class WeeklyReport {
         .toList(),
     aiSummary: json['aiSummary'] as String?,
     suggestions: (json['suggestions'] as List<dynamic>?)?.cast<String>(),
-    generatedAt: DateTime.parse(json['generatedAt'] as String),
+    generatedAt: DateTime.parse(json['generatedAt'] as String).toLocal(),
   );
 
   /// 复制并更新

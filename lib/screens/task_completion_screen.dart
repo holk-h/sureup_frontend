@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Colors, SingleTickerProviderStateMixin, AnimationController, Animation, CurvedAnimation, Curves, ScaleTransition, Material, InkWell;
+import 'package:flutter/material.dart' show Colors, SingleTickerProviderStateMixin, AnimationController, Animation, CurvedAnimation, Curves, ScaleTransition;
 import '../models/daily_task.dart';
+import '../models/review_state.dart';
 import '../services/daily_task_service.dart';
 import '../config/colors.dart';
 import '../widgets/common/review_status_icon.dart';
@@ -10,16 +11,12 @@ class TaskCompletionScreen extends StatefulWidget {
   final DailyTask task;
   final TaskItem item;
   final int itemIndex;
-  final int correctCount;
-  final int wrongCount;
 
   const TaskCompletionScreen({
     super.key,
     required this.task,
     required this.item,
     required this.itemIndex,
-    required this.correctCount,
-    required this.wrongCount,
   });
 
   @override
@@ -29,7 +26,6 @@ class TaskCompletionScreen extends StatefulWidget {
 class _TaskCompletionScreenState extends State<TaskCompletionScreen>
     with SingleTickerProviderStateMixin {
   final DailyTaskService _taskService = DailyTaskService();
-  String? _selectedFeedback;
   bool _isSubmitting = false;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -54,55 +50,19 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
     super.dispose();
   }
 
-  double get _accuracy {
-    final total = widget.correctCount + widget.wrongCount;
-    if (total == 0) return 0.0;
-    return widget.correctCount / total;
-  }
-
   Future<void> _handleSubmit() async {
-    if (_selectedFeedback == null) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('提示'),
-          content: const Text('请选择你的掌握程度'),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('知道了'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     try {
-      // 1. 创建练习记录
-      await _taskService.createPracticeSession(
-        taskId: widget.task.id,
-        knowledgePointId: widget.item.knowledgePointId,
-        knowledgePointName: widget.item.knowledgePointName,
-        totalQuestions: widget.item.totalQuestions,
-        correctQuestions: widget.correctCount,
-        startedAt: DateTime.now().subtract(const Duration(minutes: 10)), // 估算
-        userFeedback: _selectedFeedback!,
-      );
-
-      // 2. 更新任务项完成状态
+      // 1. 更新任务项完成状态
       final updatedItems = List<TaskItem>.from(widget.task.items);
       updatedItems[widget.itemIndex] = widget.item.copyWith(
         isCompleted: true,
-        correctCount: widget.correctCount,
-        wrongCount: widget.wrongCount,
       );
 
       await _taskService.updateTaskProgress(widget.task.id, updatedItems);
 
-      // 3. 返回任务列表
+      // 2. 返回任务列表
       if (mounted) {
         Navigator.pop(context, true);
       }
@@ -188,9 +148,9 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
 
             const SizedBox(height: 8),
 
-            const Text(
-              '练习完成！',
-              style: TextStyle(
+            Text(
+              _getStatusDescription(),
+              style: const TextStyle(
                 fontSize: 16,
                 color: AppColors.textSecondary,
               ),
@@ -198,33 +158,22 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
 
             const SizedBox(height: 32),
 
-            // 成绩卡片
-            _buildScoreCard(),
+            // 学习成果卡片
+            _buildProgressCard(),
 
             const SizedBox(height: 24),
 
-            // 掌握度卡片
-            _buildMasteryCard(),
+            // 知识点信息卡片
+            _buildKnowledgePointsCard(),
+
+            const SizedBox(height: 24),
+
+            // 鼓励语
+            _buildEncouragementCard(),
 
             const SizedBox(height: 32),
 
-            // 自我评价
-            const Text(
-              '你对这个知识点的掌握程度如何？',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            _buildFeedbackOptions(),
-
-            const SizedBox(height: 32),
-
-            // 提交按钮
+            // 返回按钮
             SizedBox(
               width: double.infinity,
               child: CupertinoButton.filled(
@@ -234,7 +183,7 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
                         color: Colors.white,
                       )
                     : const Text(
-                        '提交并返回',
+                        '完成',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -249,10 +198,20 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
     );
   }
 
-  Widget _buildScoreCard() {
-    final total = widget.correctCount + widget.wrongCount;
-    final accuracy = _accuracy;
+  String _getStatusDescription() {
+    switch (widget.item.status) {
+      case ReviewStatus.newLearning:
+        return '新知识学习完成！';
+      case ReviewStatus.reviewing:
+        return '复习完成，继续加油！';
+      case ReviewStatus.mastered:
+        return '知识巩固完成！';
+    }
+  }
 
+  Widget _buildProgressCard() {
+    final totalQuestions = widget.item.questions.length;
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -262,200 +221,84 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
       ),
       child: Column(
         children: [
+          const Icon(
+            CupertinoIcons.checkmark_seal_fill,
+            color: AppColors.success,
+            size: 56,
+          ),
+          const SizedBox(height: 20),
           const Text(
-            '本次成绩',
+            '🎉 太棒了！',
             style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '完成了 $totalQuestions 道题目',
+            style: const TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildScoreStat(
-                icon: CupertinoIcons.question_circle,
-                label: '题目数',
-                value: '$total',
-                color: AppColors.accent,
-              ),
-              Container(
-                width: 1,
-                height: 40,
-                color: AppColors.divider,
-              ),
-              _buildScoreStat(
-                icon: CupertinoIcons.check_mark_circled,
-                label: '正确',
-                value: '${widget.correctCount}',
-                color: AppColors.success,
-              ),
-              Container(
-                width: 1,
-                height: 40,
-                color: AppColors.divider,
-              ),
-              _buildScoreStat(
-                icon: CupertinoIcons.xmark_circle,
-                label: '错误',
-                value: '${widget.wrongCount}',
-                color: AppColors.error,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: accuracy >= 0.8
-                  ? AppColors.successGradient
-                  : accuracy >= 0.6
-                      ? AppColors.accentGradient
-                      : AppColors.warningGradient,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  CupertinoIcons.percent,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  '正确率',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '${(accuracy * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildScoreStat({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textTertiary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMasteryCard() {
+  Widget _buildKnowledgePointsCard() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: AppColors.accentGradient,
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.1),
+            AppColors.accent.withOpacity(0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: AppColors.coloredShadow(AppColors.accent, opacity: 0.15),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1.5,
+        ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              ReviewStatusIcon(
-                status: widget.item.status,
-                size: 32,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '当前状态',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.item.status.displayName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                CupertinoIcons.arrow_up_right,
-                color: Colors.white,
-                size: 32,
-              ),
-            ],
+          ReviewStatusIcon(
+            status: widget.item.status,
+            size: 40,
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  CupertinoIcons.calendar,
-                  color: Colors.white,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
                 const Text(
-                  '下次复习',
+                  '知识点',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white,
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(height: 4),
                 Text(
-                  _getNextReviewHint(),
+                  widget.item.knowledgePointName,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.item.status.displayName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -466,99 +309,49 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
     );
   }
 
-  String _getNextReviewHint() {
-    // 根据正确率估算下次复习时间
-    final accuracy = _accuracy;
-    if (accuracy >= 0.9) {
-      return '7天后';
-    } else if (accuracy >= 0.7) {
-      return '3天后';
-    } else {
-      return '明天';
-    }
-  }
-
-  Widget _buildFeedbackOptions() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildFeedbackOption(
-            '完全掌握',
-            CupertinoIcons.smiley_fill,
-            AppColors.success,
-            '完全掌握',
+  Widget _buildEncouragementCard() {
+    final encouragement = _getEncouragement();
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppColors.accentGradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.coloredShadow(AppColors.accent, opacity: 0.2),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            CupertinoIcons.hand_thumbsup_fill,
+            color: Colors.white,
+            size: 32,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildFeedbackOption(
-            '基本会了',
-            CupertinoIcons.smiley,
-            AppColors.accent,
-            '基本会了',
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildFeedbackOption(
-            '还不会',
-            CupertinoIcons.hand_thumbsdown,
-            AppColors.warning,
-            '还不会',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeedbackOption(
-    String label,
-    IconData icon,
-    Color color,
-    String value,
-  ) {
-    final isSelected = _selectedFeedback == value;
-
-    return Material(
-      color: isSelected ? color : color.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedFeedback = value;
-          });
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? color : color.withOpacity(0.3),
-              width: 2,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              encouragement,
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.5,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.white : color,
-                size: 36,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : color,
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
+  }
+
+  String _getEncouragement() {
+    switch (widget.item.status) {
+      case ReviewStatus.newLearning:
+        return '万事开头难，你已经迈出了第一步！继续保持这种学习热情，相信你一定能掌握这个知识点。';
+      case ReviewStatus.reviewing:
+        return '复习让知识更牢固！每一次回顾都是在加深理解，坚持下去，你会看到明显的进步。';
+      case ReviewStatus.mastered:
+        return '太棒了！你已经基本掌握了这个知识点。继续巩固，让知识成为你的本能！';
+    }
   }
 }
 

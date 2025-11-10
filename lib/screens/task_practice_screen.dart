@@ -2,8 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Colors, LinearProgressIndicator, Material, InkWell, BoxDecoration, BorderRadius, MaterialPageRoute;
 import '../models/daily_task.dart';
 import '../models/question.dart';
+import '../models/review_state.dart';
 import '../services/mistake_service.dart';
+import '../services/review_state_service.dart';
 import '../config/colors.dart';
+import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import '../widgets/common/question_source_badge.dart';
 import '../widgets/common/review_status_icon.dart';
 import '../widgets/common/math_markdown_text.dart';
@@ -26,6 +30,7 @@ class TaskPracticeScreen extends StatefulWidget {
 
 class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
   final MistakeService _mistakeService = MistakeService();
+  final ReviewStateService _reviewStateService = ReviewStateService();
 
   late TaskItem _currentItem;
   int _currentQuestionIndex = 0;
@@ -34,11 +39,14 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
   String? _errorMessage;
 
   // 答题记录
-  final Map<int, bool> _answerResults = {}; // 题目索引 -> 是否已完成r
-  final Map<int, String> _userAnswers = {}; // 题目索引 -> 理解程度
+  final Map<int, bool> _answerResults = {}; // 题目索引 -> 是否已完成
+  final Map<int, String> _userAnswers = {}; // 题目索引 -> 用户反馈选项
   bool _showStandardAnswer = false; // 是否显示标准答案
   bool _showSolvingHint = false; // 是否显示解题提示
   String? _currentSelection; // 当前题目的选择状态
+  
+  // 根据学习状态默认展开答案
+  bool get _shouldDefaultExpandAnswer => _currentItem.status == ReviewStatus.newLearning;
   
   // 知识点和模块信息缓存
   final Map<String, Map<String, String>> _knowledgePointsInfo = {};
@@ -48,24 +56,34 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
   void initState() {
     super.initState();
     _currentItem = widget.task.items[widget.itemIndex];
+    // 延迟加载，等待页面切换动画完全结束
+    Future.delayed(const Duration(milliseconds: 30), () {
+      if (mounted) {
     _loadQuestions();
+      }
+    });
   }
 
   Future<void> _loadQuestions() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    try {
-      // 加载所有题目
-      final questions = <Question?>[];
-      for (final taskQuestion in _currentItem.questions) {
-        final question = await _mistakeService.getQuestion(taskQuestion.questionId);
-        questions.add(question);
-      }
+    // 让 UI 先渲染加载状态
+    await Future.delayed(const Duration(milliseconds: 30));
 
-      // 加载所有题目的知识点和模块信息
+    try {
+      // 并行加载所有题目
+      final questionFutures = _currentItem.questions.map((taskQuestion) {
+        return _mistakeService.getQuestion(taskQuestion.questionId);
+      }).toList();
+      
+      final questions = await Future.wait(questionFutures);
+
+      // 收集所有知识点和模块ID
       final allKpIds = <String>{};
       final allModuleIds = <String>{};
       for (final question in questions) {
@@ -75,20 +93,35 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
         }
       }
 
+      // 并行加载知识点和模块信息
+      final futures = <Future>[];
+
       if (allKpIds.isNotEmpty) {
-        final kps = await _mistakeService.getKnowledgePoints(allKpIds.toList());
+        futures.add(
+          _mistakeService.getKnowledgePoints(allKpIds.toList()).then((kps) {
         _knowledgePointsInfo.addAll(kps);
+          })
+        );
       }
 
       if (allModuleIds.isNotEmpty) {
-        final modules = await _mistakeService.getModules(allModuleIds.toList());
+        futures.add(
+          _mistakeService.getModules(allModuleIds.toList()).then((modules) {
         _modulesInfo.addAll(modules);
+          })
+        );
+      }
+
+      if (futures.isNotEmpty) {
+        await Future.wait(futures);
       }
 
       if (mounted) {
         setState(() {
           _questions = questions;
           _isLoading = false;
+          // 新学习状态默认展开答案
+          _showStandardAnswer = _shouldDefaultExpandAnswer;
         });
       }
     } catch (e) {
@@ -105,7 +138,8 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     if (_currentQuestionIndex < _currentItem.questions.length - 1) {
       setState(() {
         _currentQuestionIndex++;
-        _showStandardAnswer = false;
+        // 新学习状态默认展开答案
+        _showStandardAnswer = _shouldDefaultExpandAnswer;
         _showSolvingHint = false;
         // 恢复当前题目的选择状态
         _currentSelection = _userAnswers[_currentQuestionIndex];
@@ -146,7 +180,8 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     if (_currentQuestionIndex > 0) {
       setState(() {
         _currentQuestionIndex--;
-        _showStandardAnswer = false;
+        // 新学习状态默认展开答案
+        _showStandardAnswer = _shouldDefaultExpandAnswer;
         _showSolvingHint = false;
         // 恢复当前题目的选择状态
         _currentSelection = _userAnswers[_currentQuestionIndex];
@@ -154,20 +189,53 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     }
   }
 
-  void _handleUnderstanding(String level) {
-    // 理解程度反馈（所有学习状态通用）
+  void _handleUnderstanding(String feedback) {
+    // 记录用户反馈
     setState(() {
-      _currentSelection = level;
-      _answerResults[_currentQuestionIndex] = true; // 标记为已查看
-      _userAnswers[_currentQuestionIndex] = level; // 记录理解程度
+      _currentSelection = feedback;
+      _answerResults[_currentQuestionIndex] = true; // 标记为已完成
+      _userAnswers[_currentQuestionIndex] = feedback; // 记录用户反馈
     });
   }
 
   Future<void> _navigateToCompletion() async {
-    final correctCount = _answerResults.values.where((isCorrect) => isCorrect).length;
-    final wrongCount = _answerResults.values.where((isCorrect) => !isCorrect).length;
+    // 1. 更新知识点的复习状态
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userProfile?.id;
+      
+      if (userId != null) {
+        // 综合所有题目的反馈，更新知识点的复习状态
+        // 策略：取最后一题的反馈作为整体反馈（因为用户做完所有题后的感受更准确）
+        final lastFeedback = _userAnswers[_currentQuestionIndex];
+        
+        if (lastFeedback != null) {
+          // 先获取当前的复习状态
+          final currentState = await _reviewStateService.getReviewState(
+            userId,
+            _currentItem.knowledgePointId,
+          );
+          
+          // 更新状态
+          await _reviewStateService.updateReviewState(
+            userId: userId,
+            knowledgePointId: _currentItem.knowledgePointId,
+            currentStatus: _currentItem.status,
+            currentMasteryScore: currentState?.masteryScore ?? 0,
+            currentInterval: currentState?.currentInterval ?? 1,
+            consecutiveCorrect: currentState?.consecutiveCorrect ?? 0,
+            feedback: lastFeedback,
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ 更新复习状态失败: $e');
+      // 即使更新失败也继续流程，不影响用户体验
+    }
 
-    // 跳转到完成页面
+    // 2. 跳转到完成页面
+    if (!mounted) return;
+    
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -175,13 +243,11 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
           task: widget.task,
           item: _currentItem,
           itemIndex: widget.itemIndex,
-          correctCount: correctCount,
-          wrongCount: wrongCount,
         ),
       ),
     );
 
-    // 返回到任务列表
+    // 3. 返回到任务列表
     if (mounted && result == true) {
       Navigator.pop(context, true);
     }
@@ -217,9 +283,7 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CupertinoActivityIndicator(),
-      );
+      return _buildLoadingView();
     }
 
     if (_errorMessage != null) {
@@ -273,7 +337,12 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
 
                   const SizedBox(height: 16),
 
-                  // 答案和理解程度区域（统一流程）
+                  // 学习引导提示
+                  _buildLearningHint(),
+
+                  const SizedBox(height: 16),
+
+                  // 答案和理解程度区域（根据学习状态差异化）
                   _buildAnswerAndFeedbackView(currentQuestion),
                   
                   // 底部额外间距，避免被底部按钮遮挡
@@ -610,7 +679,65 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     );
   }
 
-  /// 统一的答案和反馈视图（所有学习状态通用）
+  /// 学习引导提示（根据学习状态显示不同的引导文案）
+  Widget _buildLearningHint() {
+    String hintText;
+    IconData hintIcon;
+    Color hintColor;
+
+    switch (_currentItem.status) {
+      case ReviewStatus.newLearning:
+        hintText = '💡 这是新知识点，认真看答案和解题思路';
+        hintIcon = CupertinoIcons.lightbulb_fill;
+        hintColor = const Color(0xFF10B981); // 绿色
+        break;
+      case ReviewStatus.reviewing:
+        hintText = '🔄 先自己回忆解题思路，再查看答案';
+        hintIcon = CupertinoIcons.arrow_2_circlepath;
+        hintColor = const Color(0xFFF59E0B); // 橙色
+        break;
+      case ReviewStatus.mastered:
+        hintText = '🎯 测试一下掌握情况，自己先做一遍';
+        hintIcon = CupertinoIcons.scope;
+        hintColor = const Color(0xFF3B82F6); // 蓝色
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: hintColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hintColor.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hintIcon,
+            color: hintColor,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              hintText,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: hintColor,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 根据学习状态差异化的答案和反馈视图
   Widget _buildAnswerAndFeedbackView(Question question) {
     final taskQuestion = _currentItem.questions[_currentQuestionIndex];
     final isOriginalWithoutAnswer = taskQuestion.source == QuestionSource.original && 
@@ -817,58 +944,161 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
           ),
         ],
 
-        // 理解程度询问
+        // 反馈询问（根据学习状态差异化）
         const SizedBox(height: 24),
-        const Text(
-          '这道题理解了吗？',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        _buildFeedbackPrompt(),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildUnderstandingButton(
-                '完全理解',
-                CupertinoIcons.checkmark_circle_fill,
-                const Color(0xFF10B981), // 清新绿
-                const Color(0xFF34D399), // 亮绿
-                _currentSelection == '完全理解',
-                () => _handleUnderstanding('完全理解'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildUnderstandingButton(
-                '基本理解',
-                CupertinoIcons.minus_circle_fill,
-                const Color(0xFF8B5CF6), // 柔和紫
-                const Color(0xFFA78BFA), // 亮紫
-                _currentSelection == '基本理解',
-                () => _handleUnderstanding('基本理解'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildUnderstandingButton(
-                '还不太懂',
-                CupertinoIcons.xmark_circle_fill,
-                const Color(0xFFEC4899), // 温暖粉
-                const Color(0xFFF472B6), // 亮粉
-                _currentSelection == '还不太懂',
-                () => _handleUnderstanding('还不太懂'),
-              ),
-            ),
-          ],
-        ),
+        _buildFeedbackButtons(),
       ],
     );
   }
 
-  Widget _buildUnderstandingButton(
+  /// 反馈提示文案（根据学习状态）
+  Widget _buildFeedbackPrompt() {
+    String promptText;
+    
+    switch (_currentItem.status) {
+      case ReviewStatus.newLearning:
+        promptText = '看完答案后，你的理解程度如何？';
+        break;
+      case ReviewStatus.reviewing:
+        promptText = '回忆起来了吗？';
+        break;
+      case ReviewStatus.mastered:
+        promptText = '自己做完后，对照一下答案：';
+        break;
+    }
+
+    return Text(
+      promptText,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  /// 反馈按钮（根据学习状态显示不同选项）
+  Widget _buildFeedbackButtons() {
+    switch (_currentItem.status) {
+      case ReviewStatus.newLearning:
+        return Row(
+          children: [
+            Expanded(
+              child: _buildFeedbackButton(
+                '完全看懂了',
+                CupertinoIcons.smiley_fill,
+                const Color(0xFF10B981), // 绿色
+                const Color(0xFF34D399),
+                _currentSelection == '完全看懂了',
+                () => _handleUnderstanding('完全看懂了'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFeedbackButton(
+                '大致理解了',
+                CupertinoIcons.minus_circle_fill,
+                const Color(0xFF8B5CF6), // 紫色
+                const Color(0xFFA78BFA),
+                _currentSelection == '大致理解了',
+                () => _handleUnderstanding('大致理解了'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFeedbackButton(
+                '还是不太懂',
+                CupertinoIcons.xmark_circle_fill,
+                const Color(0xFFEC4899), // 粉色
+                const Color(0xFFF472B6),
+                _currentSelection == '还是不太懂',
+                () => _handleUnderstanding('还是不太懂'),
+              ),
+            ),
+          ],
+        );
+
+      case ReviewStatus.reviewing:
+        return Row(
+          children: [
+            Expanded(
+              child: _buildFeedbackButton(
+                '一看就会了',
+                CupertinoIcons.smiley_fill,
+                const Color(0xFF10B981), // 绿色
+                const Color(0xFF34D399),
+                _currentSelection == '一看就会了',
+                () => _handleUnderstanding('一看就会了'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFeedbackButton(
+                '想了会儿才懂',
+                CupertinoIcons.minus_circle_fill,
+                const Color(0xFF8B5CF6), // 紫色
+                const Color(0xFFA78BFA),
+                _currentSelection == '想了会儿才懂',
+                () => _handleUnderstanding('想了会儿才懂'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFeedbackButton(
+                '完全想不起来',
+                CupertinoIcons.xmark_circle_fill,
+                const Color(0xFFEC4899), // 粉色
+                const Color(0xFFF472B6),
+                _currentSelection == '完全想不起来',
+                () => _handleUnderstanding('完全想不起来'),
+              ),
+            ),
+          ],
+        );
+
+      case ReviewStatus.mastered:
+        return Row(
+          children: [
+            Expanded(
+              child: _buildFeedbackButton(
+                '做对了',
+                CupertinoIcons.checkmark_circle_fill,
+                const Color(0xFF10B981), // 绿色
+                const Color(0xFF34D399),
+                _currentSelection == '做对了',
+                () => _handleUnderstanding('做对了'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFeedbackButton(
+                '做错了但看懂了',
+                CupertinoIcons.minus_circle_fill,
+                const Color(0xFF8B5CF6), // 紫色
+                const Color(0xFFA78BFA),
+                _currentSelection == '做错了但看懂了',
+                () => _handleUnderstanding('做错了但看懂了'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFeedbackButton(
+                '还是不太会',
+                CupertinoIcons.xmark_circle_fill,
+                const Color(0xFFEC4899), // 粉色
+                const Color(0xFFF472B6),
+                _currentSelection == '还是不太会',
+                () => _handleUnderstanding('还是不太会'),
+              ),
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildFeedbackButton(
     String label,
     IconData icon,
     Color primaryColor,
@@ -995,6 +1225,171 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     );
   }
 
+  Widget _buildLoadingView() {
+    return SafeArea(
+      child: Column(
+        children: [
+          // 进度指示器占位
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      height: 16,
+                      width: 120,
+                      decoration: BoxDecoration(
+                        color: AppColors.divider,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    Container(
+                      height: 16,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.divider,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 题目内容区域占位
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 标签占位
+                  Row(
+                    children: [
+                      Container(
+                        height: 24,
+                        width: 60,
+                        decoration: BoxDecoration(
+                          color: AppColors.divider,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 16,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: AppColors.divider,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 题目卡片占位
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppColors.shadowSoft,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 24,
+                              width: 60,
+                              decoration: BoxDecoration(
+                                color: AppColors.divider,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              height: 24,
+                              width: 50,
+                              decoration: BoxDecoration(
+                                color: AppColors.divider,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: AppColors.divider,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 20,
+                          width: double.infinity * 0.8,
+                          decoration: BoxDecoration(
+                            color: AppColors.divider,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 20,
+                          width: double.infinity * 0.6,
+                          decoration: BoxDecoration(
+                            color: AppColors.divider,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Loading indicator
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CupertinoActivityIndicator(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 底部按钮占位
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildErrorView() {
     return Center(
       child: Padding(
@@ -1041,79 +1436,146 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
 
   /// 显示选择题答案选择器
   void _showChoiceAnswerDialog(Question question) {
-    showCupertinoDialog(
+    showCupertinoModalPopup(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('选择答案'),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: question.options!.asMap().entries.map((entry) {
-              final index = entry.key;
-              final option = entry.value;
-              // 提取选项的真实标识符（如果选项以A.、B.等开头）
-              final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
-              final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
-              final optionContent = optionMatch?.group(2) ?? option;
-
-              return CupertinoButton(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                onPressed: () {
-                  Navigator.pop(context);
-                  _updateQuestionAnswer(question, optionLabel, null);
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.divider),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: CupertinoColors.systemBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // 头部
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemBackground,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.divider,
+                    width: 0.5,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            optionLabel,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          optionContent,
-                          style: const TextStyle(
-                            fontSize: 14,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '选择答案',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
                           ),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 4),
+                        Text(
+                          '请选择正确答案选项',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.pop(context),
+                    child: const Icon(
+                      CupertinoIcons.xmark_circle_fill,
+                      color: AppColors.textTertiary,
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 选项列表
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: question.options!.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final option = entry.value;
+                  // 提取选项的真实标识符（如果选项以A.、B.等开头）
+                  final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
+                  final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
+                  final optionContent = optionMatch?.group(2) ?? option;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateQuestionAnswer(question, optionLabel, null);
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.divider,
+                            width: 1,
+                          ),
+                          boxShadow: AppColors.shadowSoft,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  optionLabel,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: MathMarkdownText(
+                                  text: optionContent,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: AppColors.textPrimary,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-        ],
       ),
     );
   }

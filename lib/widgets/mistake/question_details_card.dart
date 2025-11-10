@@ -131,7 +131,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '识别错误？点击反馈',
+            '识别错误？点击更新',
             style: TextStyle(
               fontSize: 11,
               color: AppColors.textSecondary.withValues(alpha: 0.6),
@@ -153,22 +153,18 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
         content: Column(
           children: [
             const SizedBox(height: 12),
-            const Text(
-              '请说明哪里识别错了，帮助我们改进：',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
             CupertinoTextField(
               controller: controller,
-              placeholder: '例如：题目内容识别不完整、选项错误等',
+              placeholder: '例如：A选项的“B”应该是“13”',
               maxLines: 3,
-              minLines: 3,
+              minLines: 1,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 border: Border.all(color: AppColors.divider),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
+            const SizedBox(height: 12),
           ],
         ),
         actions: [

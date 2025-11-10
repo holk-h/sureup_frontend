@@ -220,6 +220,23 @@ class AuthService {
       }
       
       final now = DateTime.now();
+      // 获取设备时区
+      final deviceTimezone = now.timeZoneName;
+      // 将时区名称转换为标准格式（如果可能）
+      String timezone = 'Asia/Shanghai'; // 默认时区
+      if (deviceTimezone.contains('GMT+8') || deviceTimezone.contains('CST')) {
+        timezone = 'Asia/Shanghai';
+      } else if (deviceTimezone.contains('GMT+9') || deviceTimezone.contains('JST')) {
+        timezone = 'Asia/Tokyo';
+      } else if (deviceTimezone.contains('GMT-5') || deviceTimezone.contains('EST')) {
+        timezone = 'America/New_York';
+      } else if (deviceTimezone.contains('GMT-8') || deviceTimezone.contains('PST')) {
+        timezone = 'America/Los_Angeles';
+      }
+      // 可以根据需要添加更多时区映射
+      
+      print('检测到设备时区: $deviceTimezone，使用: $timezone'); // 调试
+      
       // 创建用户档案数据
       final profileData = {
         'userId': _userId!,  // 必需字段
@@ -229,6 +246,7 @@ class AuthService {
         'email': null,  // 邮箱，可选
         'grade': grade,
         'focusSubjects': focusSubjects ?? [],
+        'timezone': timezone,  // 添加时区字段
         'totalMistakes': 0,
         'masteredMistakes': 0,
         'totalPracticeSessions': 0,
@@ -300,6 +318,7 @@ class AuthService {
     bool? dailyTaskReminderEnabled,
     bool? reviewReminderEnabled,
     String? reviewReminderTime,
+    String? timezone,
   }) async {
     try {
       if (_userId == null || _currentProfile == null) {
@@ -315,6 +334,7 @@ class AuthService {
       if (dailyTaskReminderEnabled != null) updateData['dailyTaskReminderEnabled'] = dailyTaskReminderEnabled;
       if (reviewReminderEnabled != null) updateData['reviewReminderEnabled'] = reviewReminderEnabled;
       if (reviewReminderTime != null) updateData['reviewReminderTime'] = reviewReminderTime;
+      if (timezone != null) updateData['timezone'] = timezone;
       updateData['lastActiveAt'] = DateTime.now().toIso8601String();
       
       final document = await _databases.updateDocument(

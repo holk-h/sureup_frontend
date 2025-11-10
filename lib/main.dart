@@ -107,28 +107,17 @@ class _AppInitializerState extends State<AppInitializer> {
 
   Widget _buildSplashScreen() {
     return Container(
-      color: AppColors.background,
+      color: CupertinoColors.white,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: AppColors.coloredShadow(
-                  AppColors.primary,
-                  opacity: 0.3,
-                ),
-              ),
-              child: const Icon(
-                CupertinoIcons.checkmark_shield_fill,
-                color: CupertinoColors.white,
-                size: 48,
-              ),
+              Image.asset(
+                'assets/images/new_splash_logo.png',
+              width: 150,
+              height: 150,
+              fit: BoxFit.contain,
             ),
             
             const SizedBox(height: 24),

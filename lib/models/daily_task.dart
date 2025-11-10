@@ -337,18 +337,18 @@ class DailyTask {
     return DailyTask(
       id: json['id'] as String? ?? json['\$id'] as String,
       userId: json['userId'] as String,
-      taskDate: DateTime.parse(json['taskDate'] as String),
+      taskDate: DateTime.parse(json['taskDate'] as String).toLocal(),
       items: items,
       totalQuestions: json['totalQuestions'] as int? ?? 0,
       completedCount: json['completedCount'] as int? ?? 0,
       isCompleted: json['isCompleted'] as bool? ?? false,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? DateTime.parse(json['createdAt'] as String).toLocal()
           : (json['\$createdAt'] != null
-              ? DateTime.parse(json['\$createdAt'] as String)
+              ? DateTime.parse(json['\$createdAt'] as String).toLocal()
               : DateTime.now()),
       completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
+          ? DateTime.parse(json['completedAt'] as String).toLocal()
           : null,
     );
   }

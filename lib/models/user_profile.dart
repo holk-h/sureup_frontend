@@ -18,6 +18,9 @@ class UserProfile {
   final bool? reviewReminderEnabled; // 复习提醒开关
   final String? reviewReminderTime; // 复习提醒时间（格式：HH:mm）
   
+  // 时区设置
+  final String? timezone; // 用户时区（如 'Asia/Shanghai', 'America/New_York'）
+  
   // 统计数据（缓存，定期更新）
   final int totalMistakes; // 总错题数
   final int masteredMistakes; // 已掌握数
@@ -55,6 +58,7 @@ class UserProfile {
     this.dailyTaskReminderEnabled,
     this.reviewReminderEnabled,
     this.reviewReminderTime,
+    this.timezone,
     this.totalMistakes = 0,
     this.masteredMistakes = 0,
     this.totalPracticeSessions = 0,
@@ -95,6 +99,7 @@ class UserProfile {
     'dailyTaskReminderEnabled': dailyTaskReminderEnabled,
     'reviewReminderEnabled': reviewReminderEnabled,
     'reviewReminderTime': reviewReminderTime,
+    'timezone': timezone,
     'totalMistakes': totalMistakes,
     'masteredMistakes': masteredMistakes,
     'totalPracticeSessions': totalPracticeSessions,
@@ -146,6 +151,7 @@ class UserProfile {
     dailyTaskReminderEnabled: json['dailyTaskReminderEnabled'] as bool?,
     reviewReminderEnabled: json['reviewReminderEnabled'] as bool?,
     reviewReminderTime: json['reviewReminderTime'] as String?,
+    timezone: json['timezone'] as String?,
     totalMistakes: (json['totalMistakes'] as int?) ?? 0,
     masteredMistakes: (json['masteredMistakes'] as int?) ?? 0,
     totalPracticeSessions: (json['totalPracticeSessions'] as int?) ?? 0,
@@ -161,24 +167,24 @@ class UserProfile {
       weeklyMistakesData: weeklyMistakesDataStr,
     // 使用 Appwrite 的自动时间戳 $createdAt 作为创建时间
     createdAt: json['createdAt'] != null 
-        ? DateTime.parse(json['createdAt'] as String)
+        ? DateTime.parse(json['createdAt'] as String).toLocal()
         : (json['\$createdAt'] != null 
-            ? DateTime.parse(json['\$createdAt'] as String)
+            ? DateTime.parse(json['\$createdAt'] as String).toLocal()
             : DateTime.now()),
     lastActiveAt: json['lastActiveAt'] != null 
-        ? DateTime.parse(json['lastActiveAt'] as String) 
+        ? DateTime.parse(json['lastActiveAt'] as String).toLocal() 
         : null,
     lastPracticeDate: json['lastPracticeDate'] != null 
-        ? DateTime.parse(json['lastPracticeDate'] as String) 
+        ? DateTime.parse(json['lastPracticeDate'] as String).toLocal() 
         : null,
     statsUpdatedAt: json['statsUpdatedAt'] != null 
-        ? DateTime.parse(json['statsUpdatedAt'] as String) 
+        ? DateTime.parse(json['statsUpdatedAt'] as String).toLocal() 
         : null,
     lastReviewAt: json['lastReviewAt'] != null 
-        ? DateTime.parse(json['lastReviewAt'] as String) 
+        ? DateTime.parse(json['lastReviewAt'] as String).toLocal() 
         : null,
     lastResetDate: json['lastResetDate'] != null 
-        ? DateTime.parse(json['lastResetDate'] as String) 
+        ? DateTime.parse(json['lastResetDate'] as String).toLocal() 
         : null,
   );
   }
@@ -196,6 +202,7 @@ class UserProfile {
     bool? dailyTaskReminderEnabled,
     bool? reviewReminderEnabled,
     String? reviewReminderTime,
+    String? timezone,
     int? totalMistakes,
     int? masteredMistakes,
     int? totalPracticeSessions,
@@ -227,6 +234,7 @@ class UserProfile {
     dailyTaskReminderEnabled: dailyTaskReminderEnabled ?? this.dailyTaskReminderEnabled,
     reviewReminderEnabled: reviewReminderEnabled ?? this.reviewReminderEnabled,
     reviewReminderTime: reviewReminderTime ?? this.reviewReminderTime,
+    timezone: timezone ?? this.timezone,
     totalMistakes: totalMistakes ?? this.totalMistakes,
     masteredMistakes: masteredMistakes ?? this.masteredMistakes,
     totalPracticeSessions: totalPracticeSessions ?? this.totalPracticeSessions,

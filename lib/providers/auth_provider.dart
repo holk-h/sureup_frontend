@@ -105,6 +105,7 @@ class AuthProvider with ChangeNotifier {
     bool? dailyTaskReminderEnabled,
     bool? reviewReminderEnabled,
     String? reviewReminderTime,
+    String? timezone,
   }) async {
     try {
       await _authService.updateUserProfile(
@@ -116,6 +117,7 @@ class AuthProvider with ChangeNotifier {
         dailyTaskReminderEnabled: dailyTaskReminderEnabled,
         reviewReminderEnabled: reviewReminderEnabled,
         reviewReminderTime: reviewReminderTime,
+        timezone: timezone,
       );
       // 重新加载用户档案
       _userProfile = _authService.currentProfile;

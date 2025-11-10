@@ -186,10 +186,10 @@ class MistakeRecord {
       analysisError: json['analysisError'] as String?,
       wrongReason: json['wrongReason'] as String?,
       analyzedAt: json['analyzedAt'] != null 
-          ? DateTime.parse(json['analyzedAt'] as String)
+          ? DateTime.parse(json['analyzedAt'] as String).toLocal()
           : null,
       accumulatedAnalyzedAt: json['accumulatedAnalyzedAt'] != null 
-          ? DateTime.parse(json['accumulatedAnalyzedAt'] as String)
+          ? DateTime.parse(json['accumulatedAnalyzedAt'] as String).toLocal()
           : null,
       masteryStatus: json['masteryStatus'] != null
           ? MasteryStatus.values.byName(json['masteryStatus'] as String)
@@ -198,15 +198,15 @@ class MistakeRecord {
       correctCount: json['correctCount'] as int? ?? 0,
       originalImageId: json['originalImageId'] as String?,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? DateTime.parse(json['createdAt'] as String).toLocal()
           : (json['\$createdAt'] != null 
-              ? DateTime.parse(json['\$createdAt'] as String)
+              ? DateTime.parse(json['\$createdAt'] as String).toLocal()
               : DateTime.now()),
       lastReviewAt: json['lastReviewAt'] != null 
-          ? DateTime.parse(json['lastReviewAt'] as String) 
+          ? DateTime.parse(json['lastReviewAt'] as String).toLocal() 
           : null,
       masteredAt: json['masteredAt'] != null 
-          ? DateTime.parse(json['masteredAt'] as String) 
+          ? DateTime.parse(json['masteredAt'] as String).toLocal() 
           : null,
     );
   }
