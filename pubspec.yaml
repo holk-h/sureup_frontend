@@ -60,7 +60,13 @@ dependencies:
   timezone: ^0.9.4
   
   # Apple Sign In
-  sign_in_with_apple: ^6.1.3
+  sign_in_with_apple: ^7.0.1
+  
+  # In-App Purchase
+  in_app_purchase: ^3.2.3
+  
+  # Internationalization (for date formatting)
+  intl: ^0.20.2 
 
 dev_dependencies:
   flutter_test:

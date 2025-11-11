@@ -1,20 +1,26 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:provider/provider.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../services/mistake_service.dart';
+import '../services/question_generation_service.dart';
 import '../widgets/common/custom_app_bar.dart';
+import '../widgets/common/math_markdown_text.dart';
 import 'mistake_preview_screen.dart';
+import 'question_generation_progress_screen.dart';
 
 /// 知识点错题列表页面 - 显示某个知识点关联的所有错题
 class KnowledgePointMistakesScreen extends StatefulWidget {
   final KnowledgePoint knowledgePoint;
+  final bool initialSelectionMode; // 是否默认开启选择模式
 
   const KnowledgePointMistakesScreen({
     super.key,
     required this.knowledgePoint,
+    this.initialSelectionMode = false,
   });
 
   @override
@@ -25,14 +31,23 @@ class KnowledgePointMistakesScreen extends StatefulWidget {
 class _KnowledgePointMistakesScreenState
     extends State<KnowledgePointMistakesScreen> {
   final _mistakeService = MistakeService();
+  final _questionGenerationService = QuestionGenerationService();
 
   List<MistakeRecord>? _mistakes;
   bool _isLoading = true;
   String? _error;
+  // 缓存题目内容：questionId -> Question
+  final Map<String, Question> _questionCache = {};
+  
+  // 选择模式
+  bool _isSelectionMode = false;
+  final Set<String> _selectedQuestionIds = {};
 
   @override
   void initState() {
     super.initState();
+    // 如果指定了初始选择模式，则开启
+    _isSelectionMode = widget.initialSelectionMode;
     _loadMistakes();
   }
 
@@ -67,6 +82,20 @@ class _KnowledgePointMistakesScreenState
             widget.knowledgePoint.questionIds.contains(mistake.questionId);
       }).toList();
 
+      // 加载所有错题对应的题目内容
+      final questionIds = filteredMistakes
+          .where((m) => m.questionId != null)
+          .map((m) => m.questionId!)
+          .toSet()
+          .toList();
+      
+      if (questionIds.isNotEmpty) {
+        final questions = await _mistakeService.getQuestions(questionIds);
+        for (final question in questions) {
+          _questionCache[question.id] = question;
+        }
+      }
+
       setState(() {
         _mistakes = filteredMistakes;
         _isLoading = false;
@@ -89,15 +118,55 @@ class _KnowledgePointMistakesScreenState
       child: Column(
         children: [
           CustomAppBar(
-            title: '$subjectIcon ${widget.knowledgePoint.name}',
+            titleWidget: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$subjectIcon ',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Flexible(
+                  child: MathMarkdownText(
+                    text: widget.knowledgePoint.name,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             rightAction: _mistakes != null && _mistakes!.isNotEmpty
-                ? CupertinoButton(
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        onPressed: _toggleSelectionMode,
+                        child: Text(
+                          _isSelectionMode ? '取消' : '选择',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: _isSelectionMode 
+                                ? AppColors.error 
+                                : AppColors.accent,
+                          ),
+                        ),
+                      ),
+                      CupertinoButton(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     onPressed: _loadMistakes,
                     child: const Icon(
                       CupertinoIcons.refresh,
                       size: 22,
                     ),
+                      ),
+                    ],
                   )
                 : null,
           ),
@@ -108,7 +177,13 @@ class _KnowledgePointMistakesScreenState
                     ? _buildErrorState()
                     : _mistakes == null || _mistakes!.isEmpty
                         ? _buildEmptyState()
-                        : _buildMistakesList(),
+                        : Column(
+                            children: [
+                              Expanded(child: _buildMistakesList()),
+                              if (_isSelectionMode && _selectedQuestionIds.isNotEmpty)
+                                _buildSelectionBar(),
+                            ],
+                          ),
           ),
         ],
       ),
@@ -255,8 +330,20 @@ class _KnowledgePointMistakesScreenState
 
   Widget _buildMistakeCard(MistakeRecord mistake) {
     final mistakeIndex = _mistakes!.indexOf(mistake);
+    final questionId = mistake.questionId;
+    final isSelected = questionId != null && _selectedQuestionIds.contains(questionId);
+    
     return GestureDetector(
       onTap: () {
+        if (_isSelectionMode && questionId != null) {
+          setState(() {
+            if (isSelected) {
+              _selectedQuestionIds.remove(questionId);
+            } else {
+              _selectedQuestionIds.add(questionId);
+            }
+          });
+        } else {
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (context) => MistakePreviewScreen(
@@ -265,6 +352,15 @@ class _KnowledgePointMistakesScreenState
             ),
           ),
         );
+        }
+      },
+      onLongPress: () {
+        if (!_isSelectionMode && questionId != null) {
+          setState(() {
+            _isSelectionMode = true;
+            _selectedQuestionIds.add(questionId);
+          });
+        }
       },
       child: Container(
         padding: const EdgeInsets.all(AppConstants.spacingL),
@@ -282,12 +378,39 @@ class _KnowledgePointMistakesScreenState
         ),
         child: Row(
           children: [
+            // 选择框（在选择模式下显示）
+            if (_isSelectionMode) ...[
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? AppColors.accent 
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected 
+                        ? AppColors.accent 
+                        : AppColors.divider,
+                    width: 2,
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(
+                        CupertinoIcons.checkmark,
+                        size: 16,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: AppConstants.spacingM),
+            ],
             Container(
               width: 48,
               height: 48,
               decoration: BoxDecoration(
                 color: widget.knowledgePoint.subject.color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
               ),
               child: Icon(
                 CupertinoIcons.doc_text_fill,
@@ -299,22 +422,71 @@ class _KnowledgePointMistakesScreenState
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    _getStatusText(mistake.masteryStatus),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _getStatusColor(mistake.masteryStatus),
+                  // 题目内容（最多两行）
+                  if (mistake.questionId != null && _questionCache.containsKey(mistake.questionId))
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: 42, // 大约两行的高度（14 * 1.5 * 2）
+                      ),
+                      child: ClipRect(
+                        child: MathMarkdownText(
+                          text: _questionCache[mistake.questionId]!.content,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      '加载中...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
                   const SizedBox(height: 4),
-                  Text(
-                    _getTimeAgo(mistake.createdAt),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
+                  Row(
+                    children: [
+                      // 题目类型标签
+                      if (mistake.questionId != null && _questionCache.containsKey(mistake.questionId))
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            _questionCache[mistake.questionId]!.type.displayName,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      if (mistake.questionId != null && _questionCache.containsKey(mistake.questionId))
+                        const SizedBox(width: 8),
+                      Text(
+                        _getTimeAgo(mistake.createdAt),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -328,28 +500,6 @@ class _KnowledgePointMistakesScreenState
         ),
       ),
     );
-  }
-
-  String _getStatusText(MasteryStatus status) {
-    switch (status) {
-      case MasteryStatus.notStarted:
-        return '未开始复习';
-      case MasteryStatus.practicing:
-        return '练习中';
-      case MasteryStatus.mastered:
-        return '已掌握';
-    }
-  }
-
-  Color _getStatusColor(MasteryStatus status) {
-    switch (status) {
-      case MasteryStatus.notStarted:
-        return AppColors.warning;
-      case MasteryStatus.practicing:
-        return AppColors.accent;
-      case MasteryStatus.mastered:
-        return AppColors.success;
-    }
   }
 
   String _getTimeAgo(DateTime dateTime) {
@@ -411,8 +561,8 @@ class _KnowledgePointMistakesScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      widget.knowledgePoint.name,
+                    MathMarkdownText(
+                      text: widget.knowledgePoint.name,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -493,6 +643,156 @@ class _KnowledgePointMistakesScreenState
     if (level >= 60) return AppColors.accent;
     if (level >= 40) return AppColors.warning;
     return AppColors.error;
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedQuestionIds.clear();
+      }
+    });
+  }
+
+  Widget _buildSelectionBar() {
+    return Container(
+      padding: const EdgeInsets.all(AppConstants.spacingM),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        border: Border(
+          top: BorderSide(color: AppColors.divider, width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowLight,
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '已选择 ${_selectedQuestionIds.length} 道题',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            CupertinoButton.filled(
+              onPressed: _createGenerationTask,
+              child: const Text('生成变式题'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createGenerationTask() async {
+    if (_selectedQuestionIds.isEmpty) {
+      return;
+    }
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userProfile?.id;
+
+      if (userId == null) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('错误'),
+            content: const Text('请先登录'),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      final client = authProvider.authService.client;
+      _questionGenerationService.initialize(client);
+
+      // 显示加载提示
+      showCupertinoDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const CupertinoAlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CupertinoActivityIndicator(),
+              SizedBox(height: 16),
+              Text('正在创建任务...'),
+            ],
+          ),
+        ),
+      );
+
+      // 创建任务（权限检查在 service 层进行）
+      final task = await _questionGenerationService.createTask(
+        userId: userId,
+        sourceQuestionIds: _selectedQuestionIds.toList(),
+        variantsPerQuestion: 1, // 默认每题生成1道变式
+        userProfile: authProvider.userProfile,
+      );
+
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 退出选择模式
+      setState(() {
+        _isSelectionMode = false;
+        _selectedQuestionIds.clear();
+      });
+
+      // 导航到进度页面
+      if (mounted) {
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (context) => QuestionGenerationProgressScreen(
+              taskId: task.id,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('创建任务失败: $e');
+      
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 显示错误提示
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('创建失败'),
+            content: Text('创建任务失败：$e'),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 }
 

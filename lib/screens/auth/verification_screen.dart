@@ -147,9 +147,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
         // 已有账号且档案完整，更新全局状态并返回
         await Provider.of<AuthProvider>(context, listen: false).onLoginSuccess();
         
-        // 返回到之前的页面（关闭登录流程）
+        // 关闭所有登录相关的页面，返回到调用登录的页面（ProfileScreen）
         if (mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          // 先弹出验证码页面，再弹出登录页面
+          Navigator.of(context).pop(); // 弹出 VerificationScreen
+          Navigator.of(context).pop(); // 弹出 LoginScreen
         }
       }
     } catch (e) {

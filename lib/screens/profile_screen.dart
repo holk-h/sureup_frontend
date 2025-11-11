@@ -5,6 +5,7 @@ import '../config/constants.dart';
 import '../config/text_styles.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
+import '../services/subscription_service.dart';
 import 'auth/login_screen.dart';
 import 'settings_screen.dart';
 
@@ -12,11 +13,8 @@ import 'settings_screen.dart';
 class ProfileScreen extends StatefulWidget {
   /// 刷新触发器 - 当这个值改变时，触发内容刷新
   final int refreshTrigger;
-  
-  const ProfileScreen({
-    super.key,
-    this.refreshTrigger = 0,
-  });
+
+  const ProfileScreen({super.key, this.refreshTrigger = 0});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -31,7 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _refreshProfileData();
     });
   }
-  
+
   @override
   void didUpdateWidget(ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -41,18 +39,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _refreshProfileData();
     }
   }
-  
+
   /// 刷新个人档案数据
   void _refreshProfileData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.isLoggedIn) {
       print('📊 开始后台刷新个人档案数据...');
       // 异步刷新，不阻塞UI
-      authProvider.refreshProfile().then((_) {
-        print('✅ 个人档案数据刷新完成');
-      }).catchError((e) {
-        print('❌ 个人档案数据刷新失败: $e');
-      });
+      authProvider
+          .refreshProfile()
+          .then((_) {
+            print('✅ 个人档案数据刷新完成');
+          })
+          .catchError((e) {
+            print('❌ 个人档案数据刷新失败: $e');
+          });
     }
   }
 
@@ -62,20 +63,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, authProvider, child) {
         final isLoggedIn = authProvider.isLoggedIn;
         final userProfile = authProvider.userProfile;
-        
-        print('ProfileScreen: isLoggedIn=$isLoggedIn, userProfile=$userProfile'); // 调试
-        
+
+        print(
+          'ProfileScreen: isLoggedIn=$isLoggedIn, userProfile=$userProfile',
+        ); // 调试
+
         // 未登录时显示登录提示
         if (!isLoggedIn) {
           return _buildLoginPrompt(context);
         }
-        
+
         // 已登录显示完整个人页面
         return _buildProfileContent(context, userProfile);
       },
     );
   }
-  
+
   // 未登录时的登录提示页面
   Widget _buildLoginPrompt(BuildContext context) {
     return CupertinoPageScaffold(
@@ -95,49 +98,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo
+                  // Logo - 更大更精致
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 96,
+                    height: 96,
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: AppColors.coloredShadow(
-                        AppColors.primary,
-                        opacity: 0.3,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0.7),
+                        ],
                       ),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
                     child: const Icon(
                       CupertinoIcons.person_crop_circle,
                       color: CupertinoColors.white,
-                      size: 48,
+                      size: 56,
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
+
+                  const SizedBox(height: 32),
+
                   Text(
                     '登录后查看个人数据',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
+                      letterSpacing: -0.8,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   Text(
                     '记录错题、查看进步、智能复盘',
                     style: TextStyle(
                       fontSize: 16,
                       color: AppColors.textTertiary,
+                      height: 1.5,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 48),
-                  
-                  // 登录按钮
+
+                  // 登录按钮 - 更大更突出
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () async {
@@ -150,37 +165,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                     child: Container(
                       width: double.infinity,
-                      height: 52,
+                      height: 56,
                       decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: AppColors.coloredShadow(
-                          AppColors.primary,
-                          opacity: 0.3,
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withOpacity(0.8),
+                          ],
                         ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: const Center(
                         child: Text(
                           '登录 / 注册',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 17,
                             fontWeight: FontWeight.w600,
                             color: CupertinoColors.white,
+                            letterSpacing: -0.3,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // 功能列表预览
+
+                  const SizedBox(height: 24),
+
+                  // 功能列表预览 - 更现代的设计
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: AppColors.shadowSoft,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.cardBackground,
+                          AppColors.cardBackground.withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.divider.withOpacity(0.1),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,13 +229,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           '登录后你可以：',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
+                            letterSpacing: -0.3,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildFeatureItem('📸', '拍照记录错题'),
+                        const SizedBox(height: 20),
+                        _buildFeatureItem('📸', '拍照记录错题，生成解析'),
                         _buildFeatureItem('📊', '查看学习数据'),
                         _buildFeatureItem('🎯', '个性化练习推荐'),
                         _buildFeatureItem('📈', '追踪学习进步'),
@@ -209,26 +251,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  
+
   Widget _buildFeatureItem(String emoji, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withOpacity(0.1),
+                  AppColors.primary.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(emoji, style: const TextStyle(fontSize: 20)),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.2,
+              ),
             ),
           ),
         ],
       ),
     );
   }
-  
+
   // 已登录时的完整个人页面
   Widget _buildProfileContent(BuildContext context, UserProfile? userProfile) {
     // 如果用户资料为空，显示提示信息
@@ -241,14 +302,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const CupertinoActivityIndicator(),
               const SizedBox(height: 16),
-              Text(
-                '正在加载用户信息...',
-                style: AppTextStyles.body,
-              ),
+              Text('正在加载用户信息...', style: AppTextStyles.body),
               const SizedBox(height: 24),
               CupertinoButton(
                 onPressed: () {
-                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  final authProvider = Provider.of<AuthProvider>(
+                    context,
+                    listen: false,
+                  );
                   authProvider.refreshProfile();
                 },
                 child: const Text('重新加载'),
@@ -270,13 +331,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             largeTitle: Text('我的'),
             heroTag: 'profile_nav_bar',
           ),
-          
+
           SliverToBoxAdapter(
             child: Column(
               children: [
                 // 渐变顶部区域 - 个人信息
                 _buildProfileHeader(userProfile),
-                
+
+                // 会员状态卡片
+                _buildSubscriptionCard(context),
+
                 // 主要内容区域
                 Padding(
                   padding: const EdgeInsets.all(AppConstants.spacingM),
@@ -285,28 +349,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       // 学习概况
                       _buildQuickStats(userProfile),
-                      
+
                       const SizedBox(height: AppConstants.spacingL),
-                      
+
                       // 个人信息
                       _buildSectionTitle('个人信息'),
                       const SizedBox(height: AppConstants.spacingM),
                       _buildInfoCard(userProfile),
-                      
+
                       const SizedBox(height: AppConstants.spacingL),
-                      
+
                       // 关注的学科
                       _buildSectionTitle('关注的学科'),
                       const SizedBox(height: AppConstants.spacingM),
                       _buildSubjectsCard(userProfile.focusSubjects ?? []),
-                      
+
                       const SizedBox(height: AppConstants.spacingL),
-                      
+
                       // 账号管理
                       _buildSectionTitle('账号管理'),
                       const SizedBox(height: AppConstants.spacingM),
                       _buildAccountActions(context),
-                      
+
                       const SizedBox(height: AppConstants.spacingXXL),
                     ],
                   ),
@@ -322,46 +386,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // 简约现代的头部卡片
   Widget _buildProfileHeader(UserProfile user) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.cardBackground,
+              AppColors.cardBackground.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.3),
+            color: AppColors.divider.withOpacity(0.1),
             width: 1,
           ),
-          boxShadow: AppColors.shadowMedium,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.08),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            // 头像 - 渐变圆形背景
+            // 头像 - 更大更突出的渐变圆形背景
             Container(
-              width: 70,
-              height: 70,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                shape: BoxShape.circle,
-                boxShadow: AppColors.coloredShadow(
-                  AppColors.primary,
-                  opacity: 0.25,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.7),
+                  ],
                 ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Center(
                 child: Text(
                   user.name.isNotEmpty ? user.name[0].toUpperCase() : '用',
                   style: const TextStyle(
-                    fontSize: 32,
+                    fontSize: 36,
                     fontWeight: FontWeight.bold,
                     color: CupertinoColors.white,
+                    letterSpacing: -1,
                   ),
                 ),
               ),
             ),
-            
-            const SizedBox(width: 16),
-            
+
+            const SizedBox(width: 20),
+
             // 用户信息
             Expanded(
               child: Column(
@@ -376,10 +464,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             user.name,
                             style: const TextStyle(
-                              fontSize: 22,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
-                              letterSpacing: -0.5,
+                              letterSpacing: -0.8,
+                              height: 1.2,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -387,23 +476,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: AppColors.textTertiary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             CupertinoIcons.pencil,
                             size: 14,
-                            color: AppColors.textTertiary,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  
-                  const SizedBox(height: 6),
-                  
+
+                  const SizedBox(height: 10),
+
                   // 年级和学习天数
                   Row(
                     children: [
@@ -413,12 +502,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onTap: () => _showEditGradeDialog(user.grade!),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
+                              horizontal: 12,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
-                              borderRadius: BorderRadius.circular(8),
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary,
+                                  AppColors.primary.withOpacity(0.8),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -432,17 +533,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: CupertinoColors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    CupertinoIcons.pencil,
-                                    size: 10,
-                                    color: CupertinoColors.white,
-                                  ),
+                                const Icon(
+                                  CupertinoIcons.pencil,
+                                  size: 10,
+                                  color: CupertinoColors.white,
                                 ),
                               ],
                             ),
@@ -450,18 +544,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      
-                      // 学习天数
+
+                      // 学习天数标签
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                          horizontal: 12,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.accentUltraLight,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: AppColors.accent.withOpacity(0.2),
+                            color: AppColors.accent.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
@@ -495,7 +589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  
+
   // 将年级数字转换为文字
   String _getGradeText(int grade) {
     const gradeMap = {
@@ -514,7 +608,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     };
     return gradeMap[grade] ?? '学生';
   }
-  
+
   // 学习概况 - 彩色渐变背景统计卡片
   Widget _buildQuickStats(UserProfile user) {
     return Row(
@@ -527,7 +621,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: AppColors.accent,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
           child: _buildCompactStatBox(
             label: '连续打卡',
@@ -536,7 +630,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: AppColors.warning,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
           child: _buildCompactStatBox(
             label: '掌握率',
@@ -548,8 +642,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-  
-  // 精致统计卡片 - 横向布局，增大尺寸
+
+  // 精致统计卡片 - 现代简洁设计
   Widget _buildCompactStatBox({
     required String label,
     required String value,
@@ -557,113 +651,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1.5,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withOpacity(0.08), color.withOpacity(0.04)],
         ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.15), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+            color: color.withOpacity(0.1),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 图标和数值行
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 图标
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [color.withOpacity(0.15), color.withOpacity(0.1)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: color,
-                ),
+          // 图标
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color.withOpacity(0.2), color.withOpacity(0.15)],
               ),
-              const SizedBox(width: 10),
-              // 数值，自动调整字体大小
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                      height: 1.0,
-                      letterSpacing: -0.3,
-                    ),
-                    maxLines: 1,
-                  ),
-                ),
-              ),
-            ],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 22, color: color),
           ),
-          const SizedBox(height: 8),
-          // 标签单独一行，居中显示
-          Center(
+          const SizedBox(height: 12),
+          // 数值
+          FittedBox(
+            fit: BoxFit.scaleDown,
             child: Text(
-              label,
+              value,
               style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textTertiary,
-                fontWeight: FontWeight.w600,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
                 height: 1.0,
+                letterSpacing: -0.5,
               ),
               maxLines: 1,
-              textAlign: TextAlign.center,
             ),
+          ),
+          const SizedBox(height: 6),
+          // 标签
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textTertiary,
+              fontWeight: FontWeight.w600,
+              height: 1.0,
+            ),
+            maxLines: 1,
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  
   // 个人信息卡片 - 只显示手机号和学习数据
   Widget _buildInfoCard(UserProfile user) {
     return Column(
       children: [
         // 手机号卡片
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
-            borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.cardBackground,
+                AppColors.cardBackground.withOpacity(0.8),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: AppColors.divider.withOpacity(0.3),
+              color: AppColors.divider.withOpacity(0.1),
               width: 1,
             ),
-            boxShadow: AppColors.shadowSoft,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: _buildInfoRow(
-            icon: CupertinoIcons.phone_circle_fill,
-            label: '手机号',
-            value: _formatPhoneNumber(user.phone) ?? '未绑定',
+            icon: _getContactIcon(user.phone, user.email),
+            label: _getContactLabel(user.phone, user.email),
+            value: _formatContactInfo(user.phone, user.email) ?? '未绑定',
             iconColor: AppColors.accent,
           ),
         ),
-        
+
         const SizedBox(height: AppConstants.spacingM),
-        
+
         // 学习数据卡片（网格布局）
         Row(
           children: [
@@ -689,7 +781,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-  
+
   // 信息行组件
   Widget _buildInfoRow({
     required IconData icon,
@@ -700,18 +792,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [iconColor.withOpacity(0.15), iconColor.withOpacity(0.1)],
+            ),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: iconColor,
-          ),
+          child: Icon(icon, size: 22, color: iconColor),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,18 +811,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: AppColors.textTertiary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.3,
                 ),
               ),
             ],
@@ -739,7 +832,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-  
+
   // 关注的学科卡片 - 可编辑版本
   Widget _buildSubjectsCard(List<String> subjects) {
     return GestureDetector(
@@ -747,30 +840,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.cardBackground,
+              AppColors.cardBackground.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.3),
+            color: AppColors.divider.withOpacity(0.1),
             width: 1,
           ),
-          boxShadow: AppColors.shadowSoft,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: subjects.isEmpty 
-          ? _buildEmptySubjects()
-          : _buildSubjectsList(subjects),
+        child: subjects.isEmpty
+            ? _buildEmptySubjects()
+            : _buildSubjectsList(subjects),
       ),
     );
   }
-  
+
   // 空状态显示
   Widget _buildEmptySubjects() {
     return Column(
       children: [
-        Icon(
-          CupertinoIcons.add_circled,
-          size: 40,
-          color: AppColors.primary,
-        ),
+        Icon(CupertinoIcons.add_circled, size: 40, color: AppColors.primary),
         const SizedBox(height: 12),
         Text(
           '点击添加关注学科',
@@ -782,14 +884,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 4),
         Text(
           '长按学科标签可以删除',
-          style: AppTextStyles.caption.copyWith(
-            color: AppColors.textTertiary,
-          ),
+          style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
         ),
       ],
     );
   }
-  
+
   // 学科列表显示
   Widget _buildSubjectsList(List<String> subjects) {
     return Column(
@@ -806,14 +906,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontSize: 11,
               ),
             ),
-            Icon(
-              CupertinoIcons.pencil_circle_fill,
-              size: 20,
-              color: AppColors.primary,
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                CupertinoIcons.pencil_circle_fill,
+                size: 18,
+                color: AppColors.primary,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         // 学科标签
         Wrap(
           spacing: 10,
@@ -822,21 +929,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // 将学科ID转换为中文显示名称
             final subject = Subject.fromString(subjectId);
             final displayName = subject?.displayName ?? subjectId;
-            
+
             return GestureDetector(
               onLongPress: () => _removeSubject(subjectId),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+                  horizontal: 18,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
                   gradient: _getSubjectGradient(displayName),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: _getSubjectBorderColor(displayName),
                     width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _getSubjectBorderColor(
+                        displayName,
+                      ).withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -845,13 +961,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _getSubjectEmoji(displayName),
                       style: const TextStyle(fontSize: 16),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
                       displayName,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: _getSubjectTextColor(displayName),
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ],
@@ -863,7 +980,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-  
+
   // 显示学科编辑器
   void _showSubjectEditor(List<String> currentSubjects) {
     showCupertinoModalPopup(
@@ -896,8 +1013,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(
                     '${_getSubjectEmoji(subject.displayName)} ${subject.displayName}',
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      color: isSelected ? AppColors.success : AppColors.textPrimary,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: isSelected
+                          ? AppColors.success
+                          : AppColors.textPrimary,
                     ),
                   ),
                 ],
@@ -913,30 +1034,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
   }
-  
+
   // 添加学科
   Future<void> _addSubject(String subjectId) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final currentSubjects = List<String>.from(authProvider.userProfile?.focusSubjects ?? []);
-    
+    final currentSubjects = List<String>.from(
+      authProvider.userProfile?.focusSubjects ?? [],
+    );
+
     if (currentSubjects.contains(subjectId)) {
       // 已经添加过了
       return;
     }
-    
+
     currentSubjects.add(subjectId);
-    
+
     try {
       // 调用 AuthProvider 更新用户档案
       await authProvider.updateProfile(focusSubjects: currentSubjects);
-      
+
       // 显示成功提示
       if (mounted) {
         showCupertinoDialog(
           context: context,
           builder: (context) => CupertinoAlertDialog(
             title: const Text('添加成功'),
-            content: Text('已添加 ${Subject.fromString(subjectId)?.displayName ?? subjectId}'),
+            content: Text(
+              '已添加 ${Subject.fromString(subjectId)?.displayName ?? subjectId}',
+            ),
             actions: [
               CupertinoDialogAction(
                 onPressed: () => Navigator.pop(context),
@@ -950,7 +1075,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // 显示错误提示
       if (mounted) {
         final errorMessage = e.toString();
-        
+
         showCupertinoDialog(
           context: context,
           builder: (context) => CupertinoAlertDialog(
@@ -967,14 +1092,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  
+
   // 删除学科
   void _removeSubject(String subjectId) {
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: const Text('删除学科'),
-        content: Text('确定要删除 ${Subject.fromString(subjectId)?.displayName ?? subjectId} 吗？'),
+        content: Text(
+          '确定要删除 ${Subject.fromString(subjectId)?.displayName ?? subjectId} 吗？',
+        ),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context),
@@ -984,15 +1111,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isDestructiveAction: true,
             onPressed: () async {
               Navigator.pop(context);
-              
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
-              final currentSubjects = List<String>.from(authProvider.userProfile?.focusSubjects ?? []);
+
+              final authProvider = Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              );
+              final currentSubjects = List<String>.from(
+                authProvider.userProfile?.focusSubjects ?? [],
+              );
               currentSubjects.remove(subjectId);
-              
+
               try {
                 // 调用 AuthProvider 更新用户档案
-                await authProvider.updateProfile(focusSubjects: currentSubjects);
-                
+                await authProvider.updateProfile(
+                  focusSubjects: currentSubjects,
+                );
+
                 // 显示成功提示（可选）
                 if (mounted) {
                   // 简单的toast提示，不需要用户确认
@@ -1002,7 +1136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // 显示错误提示
                 if (mounted) {
                   final errorMessage = e.toString();
-                  
+
                   showCupertinoDialog(
                     context: context,
                     builder: (context) => CupertinoAlertDialog(
@@ -1025,7 +1159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  
+
   // 学科渐变背景
   LinearGradient _getSubjectGradient(String subject) {
     switch (subject) {
@@ -1039,11 +1173,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return AppColors.englishGradient;
       case '生物':
         return const LinearGradient(
-          colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)], // green-50 to green-100
+          colors: [
+            Color(0xFFF0FDF4),
+            Color(0xFFDCFCE7),
+          ], // green-50 to green-100
         );
       case '语文':
         return const LinearGradient(
-          colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)], // amber-50 to amber-100
+          colors: [
+            Color(0xFFFFFBEB),
+            Color(0xFFFEF3C7),
+          ], // amber-50 to amber-100
         );
       case '历史':
         return const LinearGradient(
@@ -1055,7 +1195,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       case '政治':
         return const LinearGradient(
-          colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)], // amber-50 to amber-100
+          colors: [
+            Color(0xFFFFFBEB),
+            Color(0xFFFEF3C7),
+          ], // amber-50 to amber-100
         );
       default:
         return const LinearGradient(
@@ -1063,7 +1206,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
     }
   }
-  
+
   // 学科边框颜色
   Color _getSubjectBorderColor(String subject) {
     switch (subject) {
@@ -1089,7 +1232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return const Color(0xFFD1D5DB); // gray-300
     }
   }
-  
+
   // 学科文字颜色
   Color _getSubjectTextColor(String subject) {
     switch (subject) {
@@ -1115,7 +1258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return const Color(0xFF374151); // gray-700
     }
   }
-  
+
   // 学科emoji
   String _getSubjectEmoji(String subject) {
     switch (subject) {
@@ -1141,7 +1284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return '📚';
     }
   }
-  
+
   // 账号管理按钮组
   Widget _buildAccountActions(BuildContext context) {
     return Column(
@@ -1152,9 +1295,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: AppColors.accent,
           onTap: () {
             Navigator.of(context).push(
-              CupertinoPageRoute(
-                builder: (context) => const SettingsScreen(),
-              ),
+              CupertinoPageRoute(builder: (context) => const SettingsScreen()),
             );
           },
         ),
@@ -1168,7 +1309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-  
+
   Widget _buildActionButton({
     required IconData icon,
     required String title,
@@ -1178,37 +1319,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(AppConstants.spacingM),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.cardBackground,
+              AppColors.cardBackground.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.5),
+            color: AppColors.divider.withOpacity(0.1),
             width: 1,
           ),
-          boxShadow: AppColors.shadowSoft,
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [color.withOpacity(0.15), color.withOpacity(0.1)],
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: 22, color: color),
             ),
-            const SizedBox(width: AppConstants.spacingM),
+            const SizedBox(width: 16),
             Expanded(
               child: Text(
                 title,
-                style: AppTextStyles.smallTitle,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.3,
+                ),
               ),
             ),
             Icon(
               CupertinoIcons.chevron_right,
               size: 18,
-              color: AppColors.textTertiary.withOpacity(0.5),
+              color: AppColors.textTertiary.withOpacity(0.4),
             ),
           ],
         ),
@@ -1230,7 +1393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  
+
   // 处理登出
   void _handleLogout(BuildContext context) {
     showCupertinoDialog(
@@ -1249,7 +1412,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               Navigator.of(context).pop();
               try {
-                await Provider.of<AuthProvider>(context, listen: false).logout();
+                await Provider.of<AuthProvider>(
+                  context,
+                  listen: false,
+                ).logout();
               } catch (e) {
                 // 显示错误提示
                 if (context.mounted) {
@@ -1284,46 +1450,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1.5,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withOpacity(0.08), color.withOpacity(0.04)],
         ),
-        boxShadow: AppColors.shadowSoft,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.15), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color.withOpacity(0.2), color.withOpacity(0.15)],
+              ),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: color,
-            ),
+            child: Icon(icon, size: 22, color: color),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: color,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: AppColors.textTertiary,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1331,24 +1505,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // 格式化手机号，去掉+86前缀
-  String? _formatPhoneNumber(String? phone) {
-    if (phone == null || phone.isEmpty) {
+  // 智能格式化联系方式（手机号或邮箱）
+  String? _formatContactInfo(String? phone, String? email) {
+    // 优先使用 phone 字段
+    final contact = phone ?? email;
+
+    if (contact == null || contact.isEmpty) {
       return null;
     }
-    
-    // 如果手机号以+86开头，去掉+86前缀
-    if (phone.startsWith('+86')) {
-      return phone.substring(3);
+
+    // 判断是否为邮箱（包含 @ 符号）
+    if (contact.contains('@')) {
+      return contact; // 邮箱直接返回
     }
-    
-    return phone;
+
+    // 手机号处理：如果以+86开头，去掉+86前缀
+    if (contact.startsWith('+86')) {
+      return contact.substring(3);
+    }
+
+    return contact;
+  }
+
+  // 获取联系方式标签
+  String _getContactLabel(String? phone, String? email) {
+    final contact = phone ?? email;
+    if (contact == null || contact.isEmpty) {
+      return '联系方式';
+    }
+    // 判断是否为邮箱
+    if (contact.contains('@')) {
+      return '邮箱';
+    }
+    return '手机号';
+  }
+
+  // 获取联系方式图标
+  IconData _getContactIcon(String? phone, String? email) {
+    final contact = phone ?? email;
+    if (contact == null || contact.isEmpty) {
+      return CupertinoIcons.person_circle_fill;
+    }
+    // 判断是否为邮箱
+    if (contact.contains('@')) {
+      return CupertinoIcons.mail;
+    }
+    return CupertinoIcons.phone_circle_fill;
   }
 
   // 显示编辑昵称对话框
   void _showEditNicknameDialog(String currentName) {
     final controller = TextEditingController(text: currentName);
-    
+
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
@@ -1386,7 +1594,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (newName.isEmpty) {
                 return;
               }
-              
+
               Navigator.of(context).pop();
               await _updateNickname(newName);
             },
@@ -1412,7 +1620,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       {'value': 11, 'label': '高二'},
       {'value': 12, 'label': '高三'},
     ];
-    
+
     showCupertinoModalPopup(
       context: context,
       builder: (context) => CupertinoActionSheet(
@@ -1439,7 +1647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.updateProfile(name: newName);
-      
+
       if (mounted) {
         // 显示成功提示
         showCupertinoDialog(
@@ -1480,7 +1688,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.updateProfile(grade: newGrade);
-      
+
       if (mounted) {
         // 显示成功提示
         showCupertinoDialog(
@@ -1516,4 +1724,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// 会员状态卡片
+  Widget _buildSubscriptionCard(BuildContext context) {
+    return Consumer<SubscriptionService>(
+      builder: (context, subscriptionService, child) {
+        final status = subscriptionService.status;
+        final isPremium = status?.isActive ?? false;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              Navigator.of(context).pushNamed('/subscription');
+            },
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isPremium
+                      ? [const Color(0xFFFFB300), const Color(0xFFFFA726)]
+                      : [const Color(0xFFBDBDBD), const Color(0xFFE0E0E0)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (isPremium
+                                ? const Color(0xFFFFB300)
+                                : const Color(0xFFBDBDBD))
+                            .withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isPremium ? CupertinoIcons.sparkles : CupertinoIcons.star,
+                      color: CupertinoColors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isPremium ? '会员已激活' : '升级会员',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: CupertinoColors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isPremium ? '享受完整功能' : '解锁无限错题、变式题',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: CupertinoColors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    CupertinoIcons.chevron_right,
+                    color: CupertinoColors.white.withOpacity(0.8),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

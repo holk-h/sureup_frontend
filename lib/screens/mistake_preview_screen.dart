@@ -637,7 +637,7 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
         // 原始图片
         SliverToBoxAdapter(
           child: OriginalImageWidget(
-            imageId: widget.mistakeRecord!.originalImageId,
+            imageIds: widget.mistakeRecord!.originalImageIds,
           ),
         ),
 
@@ -655,6 +655,7 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
           ),
 
         // 分析状态卡片（pending、ocrOK、processing、failed 时显示）
+        // 只有当状态是 completed 时才不显示状态卡片
         if (widget.mistakeRecord!.analysisStatus != AnalysisStatus.completed)
           SliverToBoxAdapter(
             child: AnalysisStatusCard(
@@ -665,7 +666,10 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
           ),
 
         // 题目详情（分析完成后显示完整信息）
-        if (widget.mistakeRecord!.isAnalyzed && widget.question != null)
+        // 只有在 completed 状态下才显示完整的题目详情
+        if (widget.mistakeRecord!.analysisStatus == AnalysisStatus.completed && 
+            widget.mistakeRecord!.questionId != null && 
+            widget.question != null)
           SliverToBoxAdapter(
             child: FadeTransition(
               opacity: _detailsOpacityAnimation,

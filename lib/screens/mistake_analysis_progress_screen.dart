@@ -12,12 +12,14 @@ import 'mistake_preview_screen.dart';
 /// 显示图片上传和 AI 分析的实时进度
 /// 学科由 AI 自动识别
 class MistakeAnalysisProgressScreen extends StatefulWidget {
-  final List<String> photoFilePaths; // 照片文件路径列表
+  final List<String>? photoFilePaths; // 照片文件路径列表（旧版本，向后兼容）
+  final List<List<String>>? questions; // 题目列表，每个题目包含一张或多张照片
 
   const MistakeAnalysisProgressScreen({
     super.key,
-    required this.photoFilePaths,
-  });
+    this.photoFilePaths,
+    this.questions,
+  }) : assert(photoFilePaths != null || questions != null, '必须提供 photoFilePaths 或 questions');
 
   @override
   State<MistakeAnalysisProgressScreen> createState() =>
@@ -76,9 +78,24 @@ class _MistakeAnalysisProgressScreenState
 
       await Future.delayed(const Duration(milliseconds: 500));
 
+      // 计算总照片数和题目数
+      final List<List<String>> questionsToUpload;
+      if (widget.questions != null) {
+        questionsToUpload = widget.questions!;
+      } else if (widget.photoFilePaths != null) {
+        // 向后兼容：每张照片作为一道题
+        questionsToUpload =
+            widget.photoFilePaths!.map((path) => [path]).toList();
+      } else {
+        throw Exception('没有可上传的照片');
+      }
+      
+      final totalPhotos = questionsToUpload.fold(0, (sum, q) => sum + q.length);
+      final totalQuestions = questionsToUpload.length;
+
       setState(() {
         _progress = 0.3;
-        _status = '上传中 (${widget.photoFilePaths.length} 张照片)...';
+        _status = '上传中（$totalQuestions 道题，$totalPhotos 张照片）...';
       });
 
       // 获取当前用户 ID
@@ -88,10 +105,12 @@ class _MistakeAnalysisProgressScreenState
         throw Exception('未登录');
       }
 
-      // 创建错题记录（为每张图片创建一条记录）
-      final recordIds = await _mistakeService.createMistakeFromPhotos(
+      // 创建错题记录（按题目创建）
+      // 权限检查在 service 层进行
+      final recordIds = await _mistakeService.createMistakeFromQuestions(
         userId: userId,
-        photoFilePaths: widget.photoFilePaths,
+        questions: questionsToUpload,
+        userProfile: authProvider.userProfile,
       );
 
       // 直接跳转到第一条记录的预览页面
@@ -272,14 +291,10 @@ class _MistakeAnalysisProgressScreenState
         height: 100,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFF472B6), Color(0xFFC084FC)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: AppColors.success,
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFF472B6).withValues(alpha: 0.4),
+              color: AppColors.success.withValues(alpha: 0.4),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -309,9 +324,7 @@ class _MistakeAnalysisProgressScreenState
             widthFactor: _progress,
             child: Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF472B6), Color(0xFFC084FC)],
-                ),
+                color: AppColors.success,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -465,7 +478,7 @@ class _MistakeAnalysisProgressScreenState
         const SizedBox(height: 24),
 
         Text(
-          'AI 已成功分析 ${widget.photoFilePaths.length} 张错题照片',
+          'AI 已成功分析错题照片',
           style: AppTextStyles.caption.copyWith(
             color: AppColors.textSecondary,
           ),

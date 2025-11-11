@@ -42,6 +42,13 @@ class UserProfile {
   // 学科掌握度（由后端聚合计算）
   final Map<String, int>? subjectMasteryScores; // 学科掌握度分数，格式: {"数学": 75, "物理": 60}
   
+  // 订阅相关
+  final String? subscriptionStatus; // 订阅状态：'free' | 'active' | 'expired'
+  final DateTime? subscriptionExpiryDate; // 订阅到期时间
+  final DateTime? dailyLimitsResetDate; // 每日限制重置日期
+  final int? todayMistakeRecords; // 今日错题记录数
+  final int? todayAccumulatedAnalysis; // 今日积累分析次数
+  
   // 时间戳
   final DateTime createdAt;
   final DateTime? lastActiveAt;
@@ -78,6 +85,11 @@ class UserProfile {
     this.weeklyMistakesData,
     this.weeklyReviewData,
     this.subjectMasteryScores,
+    this.subscriptionStatus,
+    this.subscriptionExpiryDate,
+    this.dailyLimitsResetDate,
+    this.todayMistakeRecords,
+    this.todayAccumulatedAnalysis,
     required this.createdAt,
     this.lastActiveAt,
     this.lastPracticeDate,
@@ -213,6 +225,15 @@ class UserProfile {
       weeklyMistakesData: weeklyMistakesDataStr,
       weeklyReviewData: weeklyReviewDataStr,
       subjectMasteryScores: subjectMasteryScores,
+      subscriptionStatus: json['subscriptionStatus'] as String?,
+      subscriptionExpiryDate: json['subscriptionExpiryDate'] != null
+          ? DateTime.parse(json['subscriptionExpiryDate'] as String).toLocal()
+          : null,
+      dailyLimitsResetDate: json['dailyLimitsResetDate'] != null
+          ? DateTime.parse(json['dailyLimitsResetDate'] as String).toLocal()
+          : null,
+      todayMistakeRecords: (json['todayMistakeRecords'] as int?) ?? 0,
+      todayAccumulatedAnalysis: (json['todayAccumulatedAnalysis'] as int?) ?? 0,
     // 使用 Appwrite 的自动时间戳 $createdAt 作为创建时间
     createdAt: json['createdAt'] != null 
         ? DateTime.parse(json['createdAt'] as String).toLocal()

@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../services/knowledge_service.dart';
 import '../widgets/common/custom_app_bar.dart';
+import '../widgets/common/math_markdown_text.dart';
 import 'knowledge_point_mistakes_screen.dart';
 
 /// 模块详情页 - 显示某个模块下的所有知识点
@@ -592,15 +593,13 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen>
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          point.name,
+                        child: MathMarkdownText(
+                          text: point.name,
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -732,11 +731,12 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen>
       return;
     }
     
-    // 导航到知识点错题列表页面
+    // 导航到知识点错题列表页面，默认开启选择模式
     Navigator.of(context).push(
       CupertinoPageRoute(
         builder: (context) => KnowledgePointMistakesScreen(
           knowledgePoint: point,
+          initialSelectionMode: true, // 从练习页面进入，默认开启选择模式
         ),
       ),
     );

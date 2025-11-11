@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../config/colors.dart';
 import '../../services/auth_service.dart';
+import '../../providers/auth_provider.dart';
 import 'verification_screen.dart';
 import 'profile_setup_screen.dart';
-import '../home_screen.dart';
 
 /// 登录页面 - 手机号登录
 class LoginScreen extends StatefulWidget {
@@ -216,12 +217,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           );
         } else {
-          // 老用户，直接进入首页
-          Navigator.of(context).pushReplacement(
-            CupertinoPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
-          );
+          // 老用户，更新全局状态并返回原页面
+          await Provider.of<AuthProvider>(context, listen: false).onLoginSuccess();
+          Navigator.of(context).pop(); // 关闭登录页面
         }
       }
     } catch (e) {

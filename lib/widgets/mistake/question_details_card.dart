@@ -626,14 +626,14 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
                       color: AppColors.warning,
                     ),
                   ),
-                Text(
-              kpName,
+                MathMarkdownText(
+                  text: kpName,
                   style: TextStyle(
-                fontSize: 13,
+                    fontSize: 13,
                     fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
                     color: isPrimary ? AppColors.warning : AppColors.accent,
                   ),
-              ),
+                ),
               ],
             ),
           );

@@ -373,17 +373,45 @@ class MistakePreviewService {
         data: {
           'analysisStatus': 'pending',
           'analysisError': null,
+          'questionId': null, // 清除 questionId，重新分析会生成新的
         },
       );
       
       // 更新本地缓存
       final record = _cachedRecords[recordId];
       if (record != null) {
-        final updatedRecord = record.copyWith(
+        // 清除 questionId 和相关的缓存数据
+        // 由于 copyWith 无法将 questionId 设置为 null，需要手动构造新对象
+        final updatedRecord = MistakeRecord(
+          id: record.id,
+          userId: record.userId,
+          questionId: null, // 清除 questionId
+          subject: record.subject,
+          moduleIds: null, // 清除模块和知识点信息
+          knowledgePointIds: null,
+          errorReason: record.errorReason,
+          note: record.note,
+          userAnswer: record.userAnswer,
+          isImportant: record.isImportant,
           analysisStatus: AnalysisStatus.pending,
           analysisError: null,
+          wrongReason: record.wrongReason,
           analyzedAt: null,
+          accumulatedAnalyzedAt: record.accumulatedAnalyzedAt,
+          masteryStatus: record.masteryStatus,
+          reviewCount: record.reviewCount,
+          correctCount: record.correctCount,
+          originalImageIds: record.originalImageIds,
+          createdAt: record.createdAt,
+          lastReviewAt: record.lastReviewAt,
+          masteredAt: record.masteredAt,
         );
+        
+        // 清除相关的缓存
+        _cachedQuestions.remove(recordId);
+        _recordModulesInfo.remove(recordId);
+        _recordKnowledgePointsInfo.remove(recordId);
+        
         _cachedRecords[recordId] = updatedRecord;
         _recordUpdateController.add(updatedRecord);
       }
@@ -411,11 +439,37 @@ class MistakePreviewService {
       // 更新本地缓存
       final record = _cachedRecords[recordId];
       if (record != null) {
-        final updatedRecord = record.copyWith(
+        // 清除 questionId 和相关的缓存数据（重新分析会生成新的）
+        final updatedRecord = MistakeRecord(
+          id: record.id,
+          userId: record.userId,
+          questionId: null, // 清除 questionId
+          subject: record.subject,
+          moduleIds: null, // 清除模块和知识点信息
+          knowledgePointIds: null,
+          errorReason: record.errorReason,
+          note: record.note,
+          userAnswer: record.userAnswer,
+          isImportant: record.isImportant,
           analysisStatus: AnalysisStatus.pending,
-          wrongReason: wrongReason,
           analysisError: null,
+          wrongReason: wrongReason,
+          analyzedAt: null,
+          accumulatedAnalyzedAt: record.accumulatedAnalyzedAt,
+          masteryStatus: record.masteryStatus,
+          reviewCount: record.reviewCount,
+          correctCount: record.correctCount,
+          originalImageIds: record.originalImageIds,
+          createdAt: record.createdAt,
+          lastReviewAt: record.lastReviewAt,
+          masteredAt: record.masteredAt,
         );
+        
+        // 清除相关的缓存
+        _cachedQuestions.remove(recordId);
+        _recordModulesInfo.remove(recordId);
+        _recordKnowledgePointsInfo.remove(recordId);
+        
         _cachedRecords[recordId] = updatedRecord;
         _recordUpdateController.add(updatedRecord);
       }

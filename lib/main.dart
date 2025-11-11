@@ -2,9 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'config/colors.dart';
 import 'screens/main_screen.dart';
+import 'screens/subscription_screen.dart';
 import 'services/auth_service.dart';
+import 'services/appwrite_service.dart';
 import 'services/local_storage_service.dart';
 import 'services/notification_service.dart';
+import 'services/subscription_service.dart';
 import 'providers/auth_provider.dart';
 
 void main() async {
@@ -31,8 +34,22 @@ class SureUpApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, SubscriptionService>(
+          create: (_) => SubscriptionService(
+            AppwriteService(),
+            getUserId: () => null, // 初始化时返回 null
+          ),
+          update: (context, authProvider, previousService) {
+            final service = previousService ?? SubscriptionService(AppwriteService());
+            // 设置 getUserId 回调，从 AuthProvider 获取用户 ID
+            service.setGetUserId(() => authProvider.userProfile?.id);
+            return service;
+          },
+        ),
+      ],
       child: CupertinoApp(
         title: '稳了！',
         theme: const CupertinoThemeData(
@@ -48,6 +65,7 @@ class SureUpApp extends StatelessWidget {
           ),
         ),
         home: const AppInitializer(),
+        routes: {'/subscription': (context) => const SubscriptionScreen()},
         debugShowCheckedModeBanner: false,
       ),
     );
@@ -95,9 +113,12 @@ class _AppInitializerState extends State<AppInitializer> {
     // 如果用户已登录，刷新用户档案
     if (authProvider.isLoggedIn) {
       print('👤 用户已登录，刷新用户档案...');
-      authProvider.refreshProfile().then((_) {
+      authProvider
+          .refreshProfile()
+          .then((_) {
         print('✅ 用户档案刷新完成');
-      }).catchError((e) {
+          })
+          .catchError((e) {
         print('❌ 用户档案刷新失败: $e');
       });
     } else {

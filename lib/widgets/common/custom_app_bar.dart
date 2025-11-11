@@ -5,7 +5,8 @@ import '../../config/colors.dart';
 /// 自定义顶部导航栏组件
 /// 支持标题居中、返回按钮、右侧操作按钮等
 class CustomAppBar extends StatelessWidget {
-  final String title;
+  final String? title;
+  final Widget? titleWidget;
   final VoidCallback? onBack;
   final Widget? rightAction;
   final Color? backgroundColor;
@@ -16,7 +17,8 @@ class CustomAppBar extends StatelessWidget {
 
   const CustomAppBar({
     super.key,
-    required this.title,
+    this.title,
+    this.titleWidget,
     this.onBack,
     this.rightAction,
     this.backgroundColor,
@@ -24,7 +26,7 @@ class CustomAppBar extends StatelessWidget {
     this.elevation,
     this.showBackButton = true,
     this.subtitle,
-  });
+  }) : assert(title != null || titleWidget != null, 'title 或 titleWidget 必须提供一个');
 
   @override
   Widget build(BuildContext context) {
@@ -75,15 +77,17 @@ class CustomAppBar extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: titleColor ?? AppColors.textPrimary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    titleWidget != null
+                        ? titleWidget!
+                        : Text(
+                            title ?? '',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: titleColor ?? AppColors.textPrimary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(

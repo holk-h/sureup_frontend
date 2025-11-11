@@ -239,7 +239,111 @@ class MistakeService {
     return fileIds;
   }
 
-  /// 创建错题记录（拍照录入）
+  /// 创建错题记录（支持多图题）
+  /// [questions] 题目列表，每个题目包含一张或多张照片路径
+  /// [userProfile] 用户档案，用于权限检查
+  /// 返回创建的错题记录 ID 列表
+  Future<List<String>> createMistakeFromQuestions({
+    required String userId,
+    required List<List<String>> questions,
+    String? note,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      // 🔒 权限检查：每日错题录入限制
+      if (userProfile != null) {
+        final subscriptionStatus = userProfile.subscriptionStatus ?? 'free';
+        final isPremium = subscriptionStatus == 'active' &&
+            userProfile.subscriptionExpiryDate != null &&
+            userProfile.subscriptionExpiryDate!.isAfter(DateTime.now().toUtc());
+
+        if (!isPremium) {
+          // 免费用户每天最多 3 个
+          const dailyLimit = 3;
+          final todayCount = userProfile.todayMistakeRecords ?? 0;
+          if (todayCount >= dailyLimit) {
+            throw Exception('今日错题记录已达上限（$dailyLimit 次），升级会员即可无限使用');
+          }
+          print('💡 今日还可录入 ${dailyLimit - todayCount} 次错题');
+        }
+      }
+
+      // 1. 展平并上传所有图片
+      final allPhotoPaths = questions.expand((q) => q).toList();
+      print('开始上传 ${allPhotoPaths.length} 张图片（共 ${questions.length} 道题）...');
+      final allFileIds = await uploadMistakeImages(allPhotoPaths);
+      
+      if (allFileIds.isEmpty) {
+        throw Exception('所有图片上传失败');
+      }
+      
+      print('成功上传 ${allFileIds.length} 张图片');
+      
+      // 2. 将上传后的 fileIds 按题目重新组织
+      final questionFileIds = <List<String>>[];
+      var currentIndex = 0;
+      for (final question in questions) {
+        final questionLength = question.length;
+        final endIndex = currentIndex + questionLength;
+        if (endIndex <= allFileIds.length) {
+          final fileIdsForQuestion = allFileIds.sublist(currentIndex, endIndex);
+          questionFileIds.add(fileIdsForQuestion);
+          currentIndex = endIndex;
+        }
+      }
+      
+      // 3. 为每道题创建一条错题记录
+      print('开始创建 ${questionFileIds.length} 条错题记录...');
+      
+      final createFutures = questionFileIds.map((fileIds) {
+        final data = {
+          'userId': userId,
+          'questionId': null,
+          'originalImageIds': fileIds, // 多张图片ID列表
+          'analysisStatus': 'pending',
+          'masteryStatus': 'notStarted',
+          'reviewCount': 0,
+          'correctCount': 0,
+          'moduleIds': [],
+          'knowledgePointIds': [],
+          'errorReason': null,
+          if (note != null) 'note': note,
+        };
+        
+        return _databases.createDocument(
+          databaseId: ApiConfig.databaseId,
+          collectionId: ApiConfig.mistakeRecordsCollectionId,
+          documentId: ID.unique(),
+          data: data,
+        );
+      }).toList();
+      
+      final results = await Future.wait(createFutures, eagerError: false);
+      
+      final List<String> recordIds = [];
+      for (var i = 0; i < results.length; i++) {
+        try {
+          final document = results[i];
+          recordIds.add(document.$id);
+          print('成功创建错题记录 ${i + 1}/${questionFileIds.length}: ${document.$id}');
+        } catch (e) {
+          print('创建错题记录失败（跳过题目 ${i + 1}）: $e');
+        }
+      }
+      
+      if (recordIds.isEmpty) {
+        throw Exception('所有错题记录创建失败');
+      }
+      
+      print('成功创建 ${recordIds.length}/${questionFileIds.length} 条错题记录');
+      return recordIds;
+    } catch (e) {
+      print('创建错题记录失败: $e');
+      rethrow;
+    }
+  }
+  
+  /// 创建错题记录（拍照录入）- 每张照片作为单独的题目
   /// 返回创建的错题记录 ID
   /// subject 由 AI 自动识别，不需要手动传入
   Future<List<String>> createMistakeFromPhotos({
@@ -266,7 +370,7 @@ class MistakeService {
           'userId': userId,
           'questionId': null, // 拍照录入时暂无题目ID，等待AI分析后填充
           // subject 字段不再传入，由后端 AI 自动识别
-          'originalImageId': fileId, // 单个图片文件ID
+          'originalImageIds': [fileId], // 数组格式，单图题包含一张图片
           'analysisStatus': 'pending', // 等待 AI 分析
           'masteryStatus': 'notStarted',
           'reviewCount': 0,

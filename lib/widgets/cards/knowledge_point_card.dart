@@ -3,6 +3,7 @@ import '../../config/colors.dart';
 import '../../config/constants.dart';
 import '../../config/text_styles.dart';
 import '../../models/models.dart';
+import '../common/math_markdown_text.dart';
 
 /// 知识点卡片 - 现代化设计
 class KnowledgePointCard extends StatelessWidget {
@@ -86,11 +87,9 @@ class KnowledgePointCard extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  point.name,
+                                child: MathMarkdownText(
+                                  text: point.name,
                                   style: AppTextStyles.smallTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

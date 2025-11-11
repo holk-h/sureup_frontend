@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import '../config/api_config.dart';
+import '../models/user_profile.dart';
 
 /// 积累错题分析服务
 /// 
@@ -32,10 +33,28 @@ class AccumulatedAnalysisService {
   
   /// 创建分析任务
   /// 
+  /// [userProfile] 用户档案，用于权限检查
   /// 返回分析记录 ID
-  Future<String> createAnalysis(String userId) async {
+  Future<String> createAnalysis(String userId, {UserProfile? userProfile}) async {
     if (_functions == null) {
       throw Exception('服务未初始化');
+    }
+    
+    // 🔒 权限检查：积累错题分析每日限制
+    if (userProfile != null) {
+      final subscriptionStatus = userProfile.subscriptionStatus ?? 'free';
+      final isPremium = subscriptionStatus == 'active' &&
+          userProfile.subscriptionExpiryDate != null &&
+          userProfile.subscriptionExpiryDate!.isAfter(DateTime.now().toUtc());
+
+      if (!isPremium) {
+        // 免费用户每天最多 1 次
+        const dailyLimit = 1;
+        final todayCount = userProfile.todayAccumulatedAnalysis ?? 0;
+        if (todayCount >= dailyLimit) {
+          throw Exception('今日积累错题分析已达上限（$dailyLimit 次），升级会员即可无限使用');
+        }
+      }
     }
     
     try {

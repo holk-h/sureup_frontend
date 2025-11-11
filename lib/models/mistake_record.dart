@@ -53,8 +53,8 @@ class MistakeRecord {
   final int reviewCount; // 复习次数
   final int correctCount; // 正确次数
   
-  // 原始图片（拍照录入的）- 存储 fileId
-  final String? originalImageId;
+  // 原始图片（拍照录入的）- 存储 fileId 列表（支持多图题）
+  final List<String>? originalImageIds;
   
   // 时间戳
   final DateTime createdAt; // 错题时间
@@ -80,11 +80,17 @@ class MistakeRecord {
     this.masteryStatus = MasteryStatus.notStarted,
     this.reviewCount = 0,
     this.correctCount = 0,
-    this.originalImageId,
+    this.originalImageIds,
     required this.createdAt,
     this.lastReviewAt,
     this.masteredAt,
   });
+  
+  /// 是否为多图题
+  bool get isMultiPhoto => originalImageIds != null && originalImageIds!.length > 1;
+  
+  /// 获取第一张原图ID
+  String? get originalImageId => originalImageIds?.isNotEmpty == true ? originalImageIds!.first : null;
 
   /// 掌握率（正确次数/复习次数）
   double get masteryRate {
@@ -138,7 +144,7 @@ class MistakeRecord {
     'masteryStatus': masteryStatus.name,
     'reviewCount': reviewCount,
     'correctCount': correctCount,
-    'originalImageId': originalImageId,
+    'originalImageIds': originalImageIds,
     'lastReviewAt': lastReviewAt?.toIso8601String(),
     'masteredAt': masteredAt?.toIso8601String(),
   };
@@ -196,7 +202,9 @@ class MistakeRecord {
           : MasteryStatus.notStarted,
       reviewCount: json['reviewCount'] as int? ?? 0,
       correctCount: json['correctCount'] as int? ?? 0,
-      originalImageId: json['originalImageId'] as String?,
+      originalImageIds: json['originalImageIds'] != null
+          ? (json['originalImageIds'] as List<dynamic>).cast<String>()
+          : null,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String).toLocal()
           : (json['\$createdAt'] != null 
@@ -231,7 +239,7 @@ class MistakeRecord {
     MasteryStatus? masteryStatus,
     int? reviewCount,
     int? correctCount,
-    String? originalImageId,
+    List<String>? originalImageIds,
     DateTime? createdAt,
     DateTime? lastReviewAt,
     DateTime? masteredAt,
@@ -254,7 +262,7 @@ class MistakeRecord {
     masteryStatus: masteryStatus ?? this.masteryStatus,
     reviewCount: reviewCount ?? this.reviewCount,
     correctCount: correctCount ?? this.correctCount,
-    originalImageId: originalImageId ?? this.originalImageId,
+    originalImageIds: originalImageIds ?? this.originalImageIds,
     createdAt: createdAt ?? this.createdAt,
     lastReviewAt: lastReviewAt ?? this.lastReviewAt,
     masteredAt: masteredAt ?? this.masteredAt,

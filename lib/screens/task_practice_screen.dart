@@ -805,62 +805,72 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                     ],
                   ),
                 ),
-                // 预渲染内容，只切换可见性
+                // 预渲染内容，只切换可见性 - 优化动画性能
                 ClipRect(
                   child: AnimatedSize(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: Offstage(
-                      offstage: !_showStandardAnswer,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: isOriginalWithoutAnswer
-                            ? CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => _showAddAnswerDialog(question),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.warning.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: AppColors.warning.withOpacity(0.3),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        CupertinoIcons.add_circled,
-                                        color: AppColors.warning,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        '暂未录入，点击添加',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.warning,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: AnimatedOpacity(
+                      opacity: _showStandardAnswer ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: SizedBox(
+                        height: _showStandardAnswer ? null : 0,
+                        child: Visibility(
+                          visible: _showStandardAnswer,
+                          maintainState: true,
+                          maintainAnimation: true,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: isOriginalWithoutAnswer
+                                ? CupertinoButton(
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () => _showAddAnswerDialog(question),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.warning.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppColors.warning.withOpacity(0.3),
+                                          width: 1.5,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            : question.answer != null
-                                ? RepaintBoundary(
-                                    child: MathMarkdownText(
-                                      text: question.answer!,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        color: AppColors.textPrimary,
-                                        height: 1.5,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            CupertinoIcons.add_circled,
+                                            color: AppColors.warning,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            '暂未录入，点击添加',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.warning,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   )
-                                : const SizedBox.shrink(),
+                                : question.answer != null
+                                    ? RepaintBoundary(
+                                        child: MathMarkdownText(
+                                          text: question.answer!,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            color: AppColors.textPrimary,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -920,22 +930,32 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                       ],
                     ),
                   ),
-                  // 预渲染内容，只切换可见性
+                  // 预渲染内容，只切换可见性 - 优化动画性能
                   ClipRect(
                     child: AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      child: Offstage(
-                        offstage: !_showSolvingHint,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          child: RepaintBoundary(
-                            child: MathMarkdownText(
-                              text: question.solvingHint!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppColors.textPrimary,
-                                height: 1.6,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: AnimatedOpacity(
+                        opacity: _showSolvingHint ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: SizedBox(
+                          height: _showSolvingHint ? null : 0,
+                          child: Visibility(
+                            visible: _showSolvingHint,
+                            maintainState: true,
+                            maintainAnimation: true,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: RepaintBoundary(
+                                child: MathMarkdownText(
+                                  text: question.solvingHint!,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.textPrimary,
+                                    height: 1.6,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

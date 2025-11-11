@@ -12,6 +12,7 @@ import '../services/knowledge_service.dart';
 import '../services/accumulated_analysis_service.dart';
 import '../providers/auth_provider.dart';
 import 'analysis_history_screen.dart';
+import 'mistake_preview_screen.dart';
 
 /// AI分析复盘页面 - 深度错题分析
 /// 
@@ -48,7 +49,7 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
   List<KnowledgePoint>? _knowledgePoints;
   
   // 折叠状态
-  bool _isKnowledgeExpanded = false;
+  bool _isKnowledgeExpanded = true;
   bool _isReasonExpanded = false;
   
   // AI建议生成状态
@@ -170,8 +171,11 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
     });
     
     try {
-      // 1. 创建分析任务
-      _analysisId = await _analysisService.createAnalysis(userId);
+      // 1. 创建分析任务（权限检查在 service 层进行）
+      _analysisId = await _analysisService.createAnalysis(
+        userId,
+        userProfile: authProvider.userProfile,
+      );
       
       print('分析任务已创建: $_analysisId');
       
@@ -1127,48 +1131,6 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
   Widget _buildActionButtons() {
     return Column(
       children: [
-        // 主按钮：去针对性练习
-        Container(
-          width: double.infinity,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: () {
-              // TODO: 跳转到练习页面
-            },
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  CupertinoIcons.play_circle_fill,
-                  color: Colors.white,
-                  size: 22,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  '去针对性练习',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: AppConstants.spacingM),
         // 次要按钮组
         Row(
           children: [
@@ -1186,24 +1148,37 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
                 ),
                 child: CupertinoButton(
                   padding: EdgeInsets.zero,
-                  onPressed: () {
-                    // TODO: 跳转到错题列表
-                  },
-                  child: const Row(
+                  onPressed: _mistakeRecords != null && _mistakeRecords!.isNotEmpty
+                      ? () {
+                          Navigator.of(context).push(
+                            CupertinoPageRoute(
+                              builder: (context) => MistakePreviewScreen(
+                                mistakeRecordIds: _mistakeRecords!.map((m) => m.id).toList(),
+                                initialIndex: 0,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         CupertinoIcons.doc_text,
-                        color: AppColors.accent,
+                        color: _mistakeRecords != null && _mistakeRecords!.isNotEmpty
+                            ? AppColors.accent
+                            : AppColors.textTertiary,
                         size: 20,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         '查看错题',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.accent,
+                          color: _mistakeRecords != null && _mistakeRecords!.isNotEmpty
+                              ? AppColors.accent
+                              : AppColors.textTertiary,
                         ),
                       ),
                     ],
