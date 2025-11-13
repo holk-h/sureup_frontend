@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../config/colors.dart';
-import '../config/constants.dart';
 import '../config/text_styles.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../services/subscription_service.dart';
+import '../widgets/common/developer_message_dialog.dart';
 import 'auth/login_screen.dart';
 import 'settings_screen.dart';
 
@@ -79,16 +79,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// 显示开发者的话弹窗
+  void _showDeveloperMessage() {
+    DeveloperMessageDialog.show(context);
+  }
+
   // 未登录时的登录提示页面
   Widget _buildLoginPrompt(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0x00000000),
       child: CustomScrollView(
         slivers: [
-          const CupertinoSliverNavigationBar(
-            backgroundColor: Color(0x00000000),
+          CupertinoSliverNavigationBar(
+            backgroundColor: const Color(0x00000000),
             border: null,
-            largeTitle: Text('我的'),
+            largeTitle: const Text('我的'),
             heroTag: 'profile_nav_bar',
           ),
           SliverFillRemaining(
@@ -325,10 +330,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: CustomScrollView(
         slivers: [
           // 导航栏
-          const CupertinoSliverNavigationBar(
-            backgroundColor: Color(0x00000000),
+          CupertinoSliverNavigationBar(
+            backgroundColor: const Color(0x00000000),
             border: null,
-            largeTitle: Text('我的'),
+            largeTitle: const Text('我的'),
             heroTag: 'profile_nav_bar',
           ),
 
@@ -343,35 +348,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // 主要内容区域
                 Padding(
-                  padding: const EdgeInsets.all(AppConstants.spacingM),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 学习概况
                       _buildQuickStats(userProfile),
 
-                      const SizedBox(height: AppConstants.spacingL),
+                      const SizedBox(height: 20),
 
                       // 个人信息
                       _buildSectionTitle('个人信息'),
-                      const SizedBox(height: AppConstants.spacingM),
+                      const SizedBox(height: 12),
                       _buildInfoCard(userProfile),
 
-                      const SizedBox(height: AppConstants.spacingL),
+                      const SizedBox(height: 20),
 
                       // 关注的学科
                       _buildSectionTitle('关注的学科'),
-                      const SizedBox(height: AppConstants.spacingM),
+                      const SizedBox(height: 12),
                       _buildSubjectsCard(userProfile.focusSubjects ?? []),
 
-                      const SizedBox(height: AppConstants.spacingL),
+                      const SizedBox(height: 20),
 
                       // 账号管理
                       _buildSectionTitle('账号管理'),
-                      const SizedBox(height: AppConstants.spacingM),
+                      const SizedBox(height: 12),
                       _buildAccountActions(context),
 
-                      const SizedBox(height: AppConstants.spacingXXL),
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
@@ -388,67 +393,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
+              AppColors.primaryUltraLight,
               AppColors.cardBackground,
-              AppColors.cardBackground.withOpacity(0.8),
             ],
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.1),
+            color: AppColors.primary.withOpacity(0.15),
             width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: Row(
           children: [
-            // 头像 - 更大更突出的渐变圆形背景
+            // 头像
             Container(
-              width: 80,
-              height: 80,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
                     AppColors.primary,
-                    AppColors.primary.withOpacity(0.7),
+                    AppColors.primaryLight,
                   ],
                 ),
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Center(
                 child: Text(
                   user.name.isNotEmpty ? user.name[0].toUpperCase() : '用',
                   style: const TextStyle(
-                    fontSize: 36,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: CupertinoColors.white,
-                    letterSpacing: -1,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
 
             // 用户信息
             Expanded(
@@ -464,100 +455,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             user.name,
                             style: const TextStyle(
-                              fontSize: 24,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
-                              letterSpacing: -0.8,
+                              letterSpacing: -0.5,
                               height: 1.2,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
+                        const SizedBox(width: 6),
+                        Icon(
                             CupertinoIcons.pencil,
                             size: 14,
-                            color: AppColors.primary,
-                          ),
+                          color: AppColors.textTertiary,
                         ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   // 年级和学习天数
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       // 年级标签 - 可编辑
-                      if (user.grade != null) ...[
+                      if (user.grade != null)
                         GestureDetector(
                           onTap: () => _showEditGradeDialog(user.grade!),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                              horizontal: 10,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primary.withOpacity(0.8),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              color: AppColors.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   _getGradeText(user.grade!),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: CupertinoColors.white,
+                                    color: AppColors.primary,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Icon(
+                                const SizedBox(width: 4),
+                                Icon(
                                   CupertinoIcons.pencil,
                                   size: 10,
-                                  color: CupertinoColors.white,
+                                  color: AppColors.primary,
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                      ],
 
                       // 学习天数标签
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                          horizontal: 10,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.accentUltraLight,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.accent.withOpacity(0.3),
-                            width: 1,
-                          ),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -609,7 +577,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return gradeMap[grade] ?? '学生';
   }
 
-  // 学习概况 - 彩色渐变背景统计卡片
+  // 学习概况 - 只显示学习天数、掌握率、错题总数
   Widget _buildQuickStats(UserProfile user) {
     return Row(
       children: [
@@ -621,22 +589,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: AppColors.accent,
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildCompactStatBox(
-            label: '连续打卡',
-            value: '${user.continuousDays}',
-            icon: CupertinoIcons.flame_fill,
-            color: AppColors.warning,
-          ),
-        ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: _buildCompactStatBox(
             label: '掌握率',
             value: '${(user.masteryRate * 100).toStringAsFixed(0)}%',
             icon: CupertinoIcons.chart_pie_fill,
             color: AppColors.success,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildCompactStatBox(
+            label: '错题总数',
+            value: '${user.totalMistakes}',
+            icon: CupertinoIcons.book_fill,
+            color: AppColors.mistake,
           ),
         ),
       ],
@@ -651,37 +619,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [color.withOpacity(0.08), color.withOpacity(0.04)],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.15), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
           ),
-        ],
       ),
       child: Column(
         children: [
           // 图标
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [color.withOpacity(0.2), color.withOpacity(0.15)],
-              ),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 22, color: color),
+            child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(height: 12),
           // 数值
@@ -690,7 +646,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: color,
                 height: 1.0,
@@ -699,14 +655,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               maxLines: 1,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           // 标签
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: AppColors.textTertiary,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               height: 1.0,
             ),
             maxLines: 1,
@@ -717,68 +673,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // 个人信息卡片 - 只显示手机号和学习数据
+  // 个人信息卡片 - 只显示联系方式（phone字段，可能是邮箱）
   Widget _buildInfoCard(UserProfile user) {
-    return Column(
-      children: [
-        // 手机号卡片
-        Container(
-          padding: const EdgeInsets.all(18),
+    // 显示 phone 字段，可能是手机号也可能是邮箱
+    final contact = user.phone;
+    final displayContact = (contact != null && contact.isNotEmpty) 
+        ? contact 
+        : '未绑定';
+    
+    // 判断是邮箱还是手机号，用于显示图标和标签
+    final isEmail = contact != null && contact.contains('@');
+    final icon = isEmail ? CupertinoIcons.mail : CupertinoIcons.phone_circle_fill;
+    final label = isEmail ? '邮箱' : '手机号';
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.cardBackground,
-                AppColors.cardBackground.withOpacity(0.8),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.divider.withOpacity(0.1),
+          color: AppColors.divider.withOpacity(0.2),
               width: 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accent.withOpacity(0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
           child: _buildInfoRow(
-            icon: _getContactIcon(user.phone, user.email),
-            label: _getContactLabel(user.phone, user.email),
-            value: _formatContactInfo(user.phone, user.email) ?? '未绑定',
+        icon: icon,
+        label: label,
+        value: displayContact,
             iconColor: AppColors.accent,
           ),
-        ),
-
-        const SizedBox(height: AppConstants.spacingM),
-
-        // 学习数据卡片（网格布局）
-        Row(
-          children: [
-            Expanded(
-              child: _buildCompactDataCard(
-                icon: CupertinoIcons.book_fill,
-                label: '错题总数',
-                value: '${user.totalMistakes}',
-                color: AppColors.mistake,
-              ),
-            ),
-            const SizedBox(width: AppConstants.spacingM),
-            Expanded(
-              child: _buildCompactDataCard(
-                icon: CupertinoIcons.checkmark_seal_fill,
-                label: '已掌握',
-                value: '${user.masteredMistakes}',
-                color: AppColors.success,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -838,28 +761,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: () => _showSubjectEditor(subjects),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.cardBackground,
-              AppColors.cardBackground.withOpacity(0.8),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(20),
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.1),
+            color: AppColors.divider.withOpacity(0.2),
             width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: subjects.isEmpty
             ? _buildEmptySubjects()
@@ -1299,7 +1208,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           },
         ),
-        const SizedBox(height: AppConstants.spacingM),
+        const SizedBox(height: 12),
+        _buildActionButton(
+          icon: CupertinoIcons.question_circle,
+          title: '使用帮助',
+          color: AppColors.primary,
+          onTap: _showDeveloperMessage,
+        ),
+        const SizedBox(height: 12),
         _buildActionButton(
           icon: CupertinoIcons.arrow_right_square,
           title: '退出登录',
@@ -1319,49 +1235,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.cardBackground,
-              AppColors.cardBackground.withOpacity(0.8),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(18),
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: AppColors.divider.withOpacity(0.1),
+            color: AppColors.divider.withOpacity(0.2),
             width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color.withOpacity(0.15), color.withOpacity(0.1)],
-                ),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 22, color: color),
+              child: Icon(icon, size: 20, color: color),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                   letterSpacing: -0.3,
@@ -1370,8 +1268,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             Icon(
               CupertinoIcons.chevron_right,
-              size: 18,
-              color: AppColors.textTertiary.withOpacity(0.4),
+              size: 16,
+              color: AppColors.textTertiary.withOpacity(0.5),
             ),
           ],
         ),
@@ -1381,7 +1279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
+      padding: const EdgeInsets.only(left: 4, bottom: 4),
       child: Text(
         title,
         style: const TextStyle(
@@ -1442,116 +1340,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // 紧凑版数据卡片
-  Widget _buildCompactDataCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [color.withOpacity(0.08), color.withOpacity(0.04)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.15), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [color.withOpacity(0.2), color.withOpacity(0.15)],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 22, color: color),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textTertiary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 智能格式化联系方式（手机号或邮箱）
-  String? _formatContactInfo(String? phone, String? email) {
-    // 优先使用 phone 字段
-    final contact = phone ?? email;
-
-    if (contact == null || contact.isEmpty) {
-      return null;
-    }
-
-    // 判断是否为邮箱（包含 @ 符号）
-    if (contact.contains('@')) {
-      return contact; // 邮箱直接返回
-    }
-
-    // 手机号处理：如果以+86开头，去掉+86前缀
-    if (contact.startsWith('+86')) {
-      return contact.substring(3);
-    }
-
-    return contact;
-  }
-
-  // 获取联系方式标签
-  String _getContactLabel(String? phone, String? email) {
-    final contact = phone ?? email;
-    if (contact == null || contact.isEmpty) {
-      return '联系方式';
-    }
-    // 判断是否为邮箱
-    if (contact.contains('@')) {
-      return '邮箱';
-    }
-    return '手机号';
-  }
-
-  // 获取联系方式图标
-  IconData _getContactIcon(String? phone, String? email) {
-    final contact = phone ?? email;
-    if (contact == null || contact.isEmpty) {
-      return CupertinoIcons.person_circle_fill;
-    }
-    // 判断是否为邮箱
-    if (contact.contains('@')) {
-      return CupertinoIcons.mail;
-    }
-    return CupertinoIcons.phone_circle_fill;
-  }
 
   // 显示编辑昵称对话框
   void _showEditNicknameDialog(String currentName) {
@@ -1741,68 +1529,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isPremium
-                      ? [const Color(0xFFFFB300), const Color(0xFFFFA726)]
-                      : [const Color(0xFFBDBDBD), const Color(0xFFE0E0E0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                color: isPremium
+                    ? const Color(0xFFFFF8E1) // amber-50 浅金色背景
+                    : AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isPremium
+                      ? const Color(0xFFFFB300).withOpacity(0.3) // amber-500 金色边框
+                      : AppColors.divider.withOpacity(0.3),
+                  width: 1.5,
                 ),
-                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        (isPremium
-                                ? const Color(0xFFFFB300)
-                                : const Color(0xFFBDBDBD))
-                            .withOpacity(0.3),
-                    blurRadius: 12,
+                    color: isPremium
+                        ? const Color(0xFFFFB300).withOpacity(0.15)
+                        : AppColors.primary.withOpacity(0.06),
+                    blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Row(
                 children: [
+                  // 图标容器 - 金色/灰色背景
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
-                      color: CupertinoColors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(12),
+                      color: isPremium
+                          ? const Color(0xFFFFB300) // amber-500 金色
+                          : AppColors.textTertiary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: isPremium
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFFFFB300).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                     ),
+                            ]
+                          : null,
+                    ),
+                    child: Center(
                     child: Icon(
-                      isPremium ? CupertinoIcons.sparkles : CupertinoIcons.star,
-                      color: CupertinoColors.white,
-                      size: 24,
+                        isPremium
+                            ? CupertinoIcons.sparkles
+                            : CupertinoIcons.star_fill,
+                        color: isPremium
+                            ? CupertinoColors.white
+                            : AppColors.textTertiary,
+                        size: 28,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
+                  // 文字内容
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                      children: [
                         Text(
                           isPremium ? '会员已激活' : '升级会员',
-                          style: const TextStyle(
+                              style: TextStyle(
                             fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isPremium
+                                    ? const Color(0xFFE65100) // amber-900 深金色文字
+                                    : AppColors.textPrimary,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            if (isPremium) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFB300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'PRO',
+                                  style: TextStyle(
+                                    fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: CupertinoColors.white,
-                          ),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
-                          isPremium ? '享受完整功能' : '解锁无限错题、变式题',
+                          isPremium
+                              ? '享受完整功能，无限错题记录'
+                              : '解锁无限错题、变式题生成',
                           style: TextStyle(
-                            fontSize: 14,
-                            color: CupertinoColors.white.withOpacity(0.9),
+                            fontSize: 13,
+                            color: isPremium
+                                ? const Color(0xFFF57C00).withOpacity(0.8) // amber-700
+                                : AppColors.textSecondary,
+                            height: 1.3,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(
+                  const SizedBox(width: 8),
+                  // 箭头图标
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isPremium
+                          ? const Color(0xFFFFB300).withOpacity(0.1)
+                          : AppColors.textTertiary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
                     CupertinoIcons.chevron_right,
-                    color: CupertinoColors.white.withOpacity(0.8),
-                    size: 20,
+                      color: isPremium
+                          ? const Color(0xFFFFB300)
+                          : AppColors.textTertiary,
+                      size: 18,
+                    ),
                   ),
                 ],
               ),

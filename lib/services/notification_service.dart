@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:appwrite/appwrite.dart';
 
 /// 通知服务
 class NotificationService {
@@ -11,6 +14,10 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  String? _lastRegisteredToken; // 记录上次注册的 token，避免重复注册
+  
+  // MethodChannel 用于与 iOS 原生代码通信
+  static const MethodChannel _channel = MethodChannel('com.sureup.app/apns');
 
   /// 初始化通知服务
   Future<void> initialize() async {
@@ -303,6 +310,90 @@ class NotificationService {
     final enabled = prefs.getBool('${key}_enabled') ?? false;
     final time = prefs.getString('${key}_time');
     return {'enabled': enabled, 'time': time};
+  }
+
+  /// 注册 APNs Push Target 到 Appwrite
+  /// 
+  /// 在用户登录后调用，将设备的 APNs token 注册到当前用户账户
+  /// [account] Appwrite Account 实例
+  Future<void> registerPushTarget(Account account) async {
+    // 仅在 iOS 平台上执行
+    if (!Platform.isIOS) {
+      print('⚠️ 非 iOS 平台，跳过 APNs push target 注册');
+      return;
+    }
+
+    try {
+      // 请求通知权限
+      await initialize();
+      final hasPermission = await requestPermissions();
+      if (!hasPermission) {
+        print('⚠️ 用户未授予通知权限，跳过 push target 注册');
+        return;
+      }
+
+      // 获取 APNs token
+      final apnsToken = await _getApnsToken();
+      if (apnsToken == null || apnsToken.isEmpty) {
+        print('⚠️ 未能获取 APNs token');
+        return;
+      }
+
+      // 检查是否已经注册过相同的 token
+      final prefs = await SharedPreferences.getInstance();
+      final lastToken = prefs.getString('last_registered_apns_token');
+      if (lastToken == apnsToken && _lastRegisteredToken == apnsToken) {
+        print('✅ APNs token 已注册，跳过重复注册');
+        return;
+      }
+
+      print('📱 开始注册 APNs push target...');
+      
+      // 生成唯一 ID
+      final targetId = ID.unique();
+      
+      // 调用 Appwrite Account.createPushTarget
+      await account.createPushTarget(
+        targetId: targetId,
+        identifier: apnsToken,
+        providerId: 'apns', // APNs provider ID
+      );
+
+      // 保存已注册的 token
+      _lastRegisteredToken = apnsToken;
+      await prefs.setString('last_registered_apns_token', apnsToken);
+      
+      print('✅ APNs push target 注册成功！Target ID: $targetId');
+    } catch (e) {
+      print('❌ 注册 APNs push target 失败: $e');
+      // 不抛出异常，避免影响登录流程
+    }
+  }
+
+  /// 获取 APNs token
+  /// 
+  /// 通过 MethodChannel 从 iOS 原生代码获取 APNs token
+  Future<String?> _getApnsToken() async {
+    try {
+      if (!Platform.isIOS) return null;
+
+      // 调用原生方法获取 APNs token
+      final String? token = await _channel.invokeMethod('getApnsToken');
+      
+      if (token != null && token.isNotEmpty) {
+        print('✅ 成功获取 APNs token: ${token.substring(0, 10)}...');
+        return token;
+      } else {
+        print('⚠️ APNs token 尚未准备好');
+        return null;
+      }
+    } on PlatformException catch (e) {
+      print('❌ 获取 APNs token 失败 (PlatformException): ${e.message}');
+      return null;
+    } catch (e) {
+      print('❌ 获取 APNs token 失败: $e');
+      return null;
+    }
   }
 }
 

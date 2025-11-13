@@ -593,7 +593,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

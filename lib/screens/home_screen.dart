@@ -41,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isLoadingTask = false;
   int _continuousDays = 0; // 连续完成天数
   
-  bool _isInitialized = false;
   bool _isLoading = false; // 防止重复加载
   bool _isDataLoaded = false; // 数据是否已加载完成（用于避免图表闪烁）
   
@@ -56,19 +55,55 @@ class _HomeScreenState extends State<HomeScreen>
   bool get wantKeepAlive => true; // 保持页面状态，避免重复构建
   
   // 获取默认统计数据
-  static Map<String, dynamic> _getDefaultStats() => {
-    'totalMistakes': 0,
-    'notMasteredCount': 0,
-    'masteredCount': 0,
-    'progress': 0.0,
-    'totalPracticeSessions': 0,
-    'completionRate': 0,
-    'continuousDays': 0,
-    'weekMistakes': 0,
-    'weeklyChartData': <Map<String, dynamic>>[],
-    'usageDays': 0,
-    'userName': '游客',
-  };
+  static Map<String, dynamic> _getDefaultStats() {
+    // 生成7天的默认数据（全为0）
+    final now = DateTime.now();
+    final List<Map<String, dynamic>> weeklyChartData = [];
+    
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      weeklyChartData.add({
+        'day': _getDayName(date.weekday),
+        'date': _getDateKey(date),
+        'mistakeCount': 0.0,
+        'practiceCount': 0.0,
+        'isToday': i == 0,
+      });
+    }
+    
+    return {
+      'totalMistakes': 0,
+      'notMasteredCount': 0,
+      'masteredCount': 0,
+      'progress': 0.0,
+      'totalPracticeSessions': 0,
+      'completionRate': 0,
+      'continuousDays': 0,
+      'weekMistakes': 0,
+      'weeklyChartData': weeklyChartData,
+      'usageDays': 0,
+      'userName': '游客',
+    };
+  }
+  
+  // 获取日期键（用于分组）格式：YYYY-MM-DD
+  static String _getDateKey(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+  
+  // 获取星期几的中文名称
+  static String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return '周一';
+      case 2: return '周二';
+      case 3: return '周三';
+      case 4: return '周四';
+      case 5: return '周五';
+      case 6: return '周六';
+      case 7: return '周日';
+      default: return '';
+    }
+  }
 
   @override
   void initState() {
@@ -309,11 +344,10 @@ class _HomeScreenState extends State<HomeScreen>
       // 如果未登录，显示默认数据
       if (userId == null) {
         print('👤 未登录，显示默认数据');
-        if (mounted && !_isInitialized) {
+        if (mounted) {
           setState(() {
             _stats = _getDefaultStats();
-            _isInitialized = true;
-            _isDataLoaded = true; // 未登录也标记为已加载
+            _isDataLoaded = true; // 未登录也标记为已加载，显示0数据图表
           });
         }
         return;
@@ -332,7 +366,6 @@ class _HomeScreenState extends State<HomeScreen>
       if (mounted) {
         setState(() {
           _stats = stats;
-          _isInitialized = true;
           _isDataLoaded = true; // 标记数据已加载
         });
         

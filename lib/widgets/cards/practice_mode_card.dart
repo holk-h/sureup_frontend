@@ -8,8 +8,9 @@ class PracticeModeCard extends StatelessWidget {
   final String description;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isCompact; // 是否为紧凑模式（用于两列布局）
+  final bool enabled; // 是否启用
 
   const PracticeModeCard({
     super.key,
@@ -17,8 +18,9 @@ class PracticeModeCard extends StatelessWidget {
     required this.description,
     required this.icon,
     required this.color,
-    required this.onTap,
+    this.onTap,
     this.isCompact = false,
+    this.enabled = true,
   });
 
   @override
@@ -31,7 +33,7 @@ class PracticeModeCard extends StatelessWidget {
 
   Widget _buildCompactCard() {
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Container(
         padding: const EdgeInsets.all(AppConstants.spacingM),
         decoration: BoxDecoration(
@@ -112,7 +114,9 @@ class PracticeModeCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: enabled
+                    ? color.withOpacity(0.1)
+                    : AppColors.textTertiary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -120,19 +124,21 @@ class PracticeModeCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '开始',
+                    enabled ? '开始' : '即将推出',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: color,
+                      color: enabled ? color : AppColors.textTertiary,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    CupertinoIcons.arrow_right,
-                    size: 14,
-                    color: color,
-                  ),
+                  if (enabled) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      CupertinoIcons.arrow_right,
+                      size: 14,
+                      color: color,
+                    ),
+                  ],
                 ],
               ),
             ),

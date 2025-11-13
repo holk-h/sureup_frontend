@@ -731,12 +731,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen>
       return;
     }
     
-    // 导航到知识点错题列表页面，默认开启选择模式
+    // 导航到知识点错题列表页面
+    // 从分析页面进入，不显示选择按钮
     Navigator.of(context).push(
       CupertinoPageRoute(
         builder: (context) => KnowledgePointMistakesScreen(
           knowledgePoint: point,
-          initialSelectionMode: true, // 从练习页面进入，默认开启选择模式
+          initialSelectionMode: false,
+          showSelectionButton: false, // 从分析页面进入，不显示选择按钮
         ),
       ),
     );

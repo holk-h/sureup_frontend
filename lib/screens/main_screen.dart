@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import '../config/colors.dart';
 import '../widgets/common/custom_tab_bar.dart';
+import '../widgets/common/developer_message_dialog.dart';
 import '../services/mistake_service.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
@@ -10,7 +11,13 @@ import 'profile_screen.dart';
 
 /// 主屏幕 - 带底部导航栏
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  /// 是否显示开发者的话弹窗（登录完成后）
+  final bool showDeveloperMessage;
+
+  const MainScreen({
+    super.key,
+    this.showDeveloperMessage = false,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -52,10 +59,24 @@ class _MainScreenState extends State<MainScreen> {
     // 应用启动时的初始化数据刷新
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _performStartupDataRefresh();
+      
+      // 如果需要显示开发者的话，延迟显示弹窗
+      if (widget.showDeveloperMessage) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showDeveloperMessage();
+          }
+        });
+      }
     });
     
     // 加载积累统计数据
     _loadAccumulationStats();
+  }
+  
+  /// 显示开发者的话弹窗
+  void _showDeveloperMessage() {
+    DeveloperMessageDialog.show(context);
   }
   
   /// 加载积累统计数据
@@ -154,7 +175,7 @@ class _MainScreenState extends State<MainScreen> {
     return CupertinoPageScaffold(
       child: Container(
         decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
+          color: AppColors.background,
         ),
         child: Column(
           children: [

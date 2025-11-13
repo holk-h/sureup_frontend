@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// 稳了！设计系统 - 现代高级配色（绿色主题）
 class AppColors {
   // 主色调：清新绿
-  static const Color primary = Color(0xFF10B981); // emerald-500
+  static const Color primary = Color.fromARGB(255, 13, 197, 157); // emerald-500
   static const Color primaryDark = Color(0xFF059669); // emerald-600
   static const Color primaryLight = Color(0xFF34D399); // emerald-400
   static const Color primaryUltraLight = Color(0xFFECFDF5); // emerald-50

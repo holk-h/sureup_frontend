@@ -68,6 +68,9 @@ class SubscriptionService extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  // 🚀 初始化标志：用于忽略开屏时自动推送的历史购买
+  bool _isInitializing = true;
+
   SubscriptionService(this._appwrite, {String? Function()? getUserId})
       : _getUserId = getUserId {
     _initializeService();
@@ -96,8 +99,18 @@ class SubscriptionService extends ChangeNotifier {
       },
     );
 
-    // 加载产品和状态
+    // 🚀 优化：只加载产品和订阅状态，不自动恢复购买
+    // 恢复购买应该由用户主动触发，而不是开屏自动执行
     await Future.wait([_loadProducts(), loadSubscriptionStatus()]);
+    
+    // 🚀 延迟标记初始化完成，给 purchaseStream 时间推送历史记录
+    // 这样我们可以忽略这些自动推送的记录
+    Future.delayed(const Duration(seconds: 2), () {
+      _isInitializing = false;
+      debugPrint('✅ SubscriptionService initialization complete, will now process new purchases');
+    });
+    
+    debugPrint('✅ SubscriptionService initialized (ignoring auto-pushed purchases)');
   }
 
   /// 加载可用产品
@@ -271,6 +284,7 @@ class SubscriptionService extends ChangeNotifier {
     List<PurchaseDetails> purchaseDetailsList,
   ) async {
     debugPrint('🔄 _handlePurchaseUpdates called with ${purchaseDetailsList.length} items');
+    debugPrint('   Is initializing: $_isInitializing');
     
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
       debugPrint('📦 Purchase update:');
@@ -278,6 +292,18 @@ class SubscriptionService extends ChangeNotifier {
       debugPrint('   Product ID: ${purchaseDetails.productID}');
       debugPrint('   Transaction Date: ${purchaseDetails.transactionDate}');
       debugPrint('   Pending Complete: ${purchaseDetails.pendingCompletePurchase}');
+
+      // 🚀 关键优化：初始化阶段忽略所有 restored 状态的购买
+      // 这些是 iOS 自动推送的历史购买记录，不需要验证
+      if (_isInitializing && purchaseDetails.status == PurchaseStatus.restored) {
+        debugPrint('⏭️ Skipping auto-pushed restored purchase during initialization');
+        // 直接完成交易，避免重复推送
+        if (purchaseDetails.pendingCompletePurchase) {
+          await _iap.completePurchase(purchaseDetails);
+          debugPrint('🏁 Completed without verification (initialization phase)');
+        }
+        continue; // 跳过这条记录2
+      }
 
       if (purchaseDetails.status == PurchaseStatus.pending) {
         // 购买进行中
@@ -300,8 +326,8 @@ class SubscriptionService extends ChangeNotifier {
         notifyListeners();
       } else if (purchaseDetails.status == PurchaseStatus.purchased ||
           purchaseDetails.status == PurchaseStatus.restored) {
-        // 购买成功，验证收据
-        debugPrint('✅ Purchase successful! Now verifying...');
+        // 购买成功或用户主动恢复，验证收据
+        debugPrint('✅ Purchase/Restore confirmed! Now verifying...');
         final bool valid = await _verifyPurchase(purchaseDetails);
         if (valid) {
           // 验证成功
@@ -353,16 +379,29 @@ class SubscriptionService extends ChangeNotifier {
 
       debugPrint('🔐 Verifying purchase for product: ${purchaseDetails.productID}');
 
+      // 🚀 从 PurchaseDetails 获取 transactionId（用于缓存检查）
+      String? transactionId;
+      if (Platform.isIOS) {
+        // iOS: 使用 purchaseID (对应 Apple 的 transactionIdentifier)
+        transactionId = purchaseDetails.purchaseID;
+      } else {
+        // Android: 使用 purchaseID 或 serverVerificationData 的哈希
+        transactionId = purchaseDetails.purchaseID;
+      }
+      
+      debugPrint('📋 Transaction ID: $transactionId');
+
       // 构建验证请求
       Map<String, dynamic> requestBody = {
         'userId': userId,
         'platform': Platform.isIOS ? 'ios' : 'android',
-        'productId': purchaseDetails.productID, // 添加 productId
+        'productId': purchaseDetails.productID,
+        'transactionId': transactionId, // 🚀 传递 transactionId 用于缓存检查
       };
 
       if (Platform.isIOS) {
         // iOS: 发送收据数据
-        final String? receiptData =
+        final String receiptData =
             purchaseDetails.verificationData.serverVerificationData;
         if (receiptData == null) {
           debugPrint('❌ No receipt data');
@@ -379,45 +418,53 @@ class SubscriptionService extends ChangeNotifier {
 
       // 转换为 JSON 字符串
       final requestBodyJson = jsonEncode(requestBody);
-      debugPrint('📤 Sending verification request: $requestBodyJson');
+      debugPrint('📤 Sending verification request with cache support');
 
-      // 调用验证 Function
+      // 🚀 调用验证 Function
+      // 后端已配置为异步执行（async: true），所以会立即返回 execution 对象
       final functions = _appwrite.functions;
-      debugPrint('🔧 Calling subscription-verify function...');
+      debugPrint('🔧 Calling subscription-verify function (backend async mode)...');
       
       final execution = await functions.createExecution(
         functionId: 'subscription-verify',
         body: requestBodyJson,
       );
 
-      debugPrint('📥 Function execution status: ${execution.status}');
-      debugPrint('📥 Function response code: ${execution.responseStatusCode}');
-
-      // 检查 HTTP 响应码而非 execution.status（它是枚举类型）
-      if (execution.responseStatusCode != 200) {
-        debugPrint('❌ Function returned non-200 status code: ${execution.responseStatusCode}');
-        debugPrint('❌ Response body: ${execution.responseBody}');
-        return false;
-      }
-
-      final response = execution.responseBody;
-      debugPrint('✅ Verification response (HTTP 200): $response');
-
-      // 解析响应
+      debugPrint('📥 Function execution started: ${execution.$id}');
+      debugPrint('📥 Function status: ${execution.status}');
+      debugPrint('📥 Response body: ${execution.responseBody}');
+      
+      // 🚀 检查是否是已过期的订阅
       try {
-        final responseJson = jsonDecode(response);
-        if (responseJson['success'] == true) {
-          debugPrint('✅ Purchase verified successfully!');
-          return true;
-        } else {
-          debugPrint('❌ Verification failed: ${responseJson['message']}');
-          return false;
+        final responseJson = jsonDecode(execution.responseBody);
+        if (responseJson['isExpired'] == true) {
+          debugPrint('⚠️ 检测到已过期的订阅记录');
+          debugPrint('   这是沙盒环境特有现象：测试订阅过期后无法重新购买');
+          debugPrint('   生产环境中用户可以正常续订');
+          _errorMessage = '沙盒测试订阅已过期\n请使用新的测试账号或在生产环境测试';
+          return false; // 返回 false 表示验证失败（过期）
         }
       } catch (e) {
-        debugPrint('⚠️ Failed to parse response as JSON: $e');
-        // 降级处理：如果不是 JSON，检查是否包含 error
-        return !response.contains('error');
+        debugPrint('⚠️ Failed to parse response: $e');
       }
+      
+      // 🚀 后端配置为异步执行，function 会在后台处理
+      // 订阅状态会通过后端更新，前端稍后刷新即可
+      
+      // 短暂延迟后刷新订阅状态（给后端一点时间处理）
+      Future.delayed(const Duration(seconds: 3), () {
+        debugPrint('🔄 Refreshing subscription status after async verification...');
+        loadSubscriptionStatus();
+      });
+      
+      // 再延迟一次（防止第一次刷新时后端还未完成）
+      Future.delayed(const Duration(seconds: 6), () {
+        debugPrint('🔄 Second refresh for subscription status...');
+        loadSubscriptionStatus();
+      });
+      
+      // 返回 true 表示验证请求已发送
+      return true;
     } catch (e) {
       debugPrint('❌ Verification error: $e');
       debugPrint('❌ Error type: ${e.runtimeType}');
@@ -437,16 +484,33 @@ class SubscriptionService extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    debugPrint('🔄 开始恢复购买...');
+    
+    // 🚀 标记不再是初始化阶段，允许处理恢复的购买
+    _isInitializing = false;
+
     try {
       await _iap.restorePurchases();
       
-      // 设置超时保护：如果10秒内没有收到状态回调，重置加载状态
-      Future.delayed(const Duration(seconds: 10), () {
+      // 🚀 设置超时保护：如果15秒内没有收到状态回调，检查最终状态
+      Future.delayed(const Duration(seconds: 15), () async {
         if (_isLoading) {
-          debugPrint('⚠️ Restore timeout, resetting loading state');
+          debugPrint('⚠️ Restore timeout, checking final status...');
           _isLoading = false;
-          // 如果10秒后还在 loading，可能没有可恢复的购买
-          _errorMessage = '没有找到可恢复的购买记录';
+          
+          // 刷新订阅状态以获取最终结果
+          await loadSubscriptionStatus();
+          
+          // 根据订阅状态给出不同提示
+          if (_status?.isActive == true) {
+            debugPrint('✅ 恢复成功：订阅已激活');
+            // 成功恢复，不显示错误消息
+            _errorMessage = null;
+          } else {
+            debugPrint('⚠️ 恢复完成：未找到有效订阅');
+            _errorMessage = '没有找到有效的订阅记录';
+          }
+          
           notifyListeners();
         }
       });

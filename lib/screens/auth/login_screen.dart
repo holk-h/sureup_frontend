@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../providers/auth_provider.dart';
 import 'verification_screen.dart';
 import 'profile_setup_screen.dart';
+import '../main_screen.dart';
 
 /// 登录页面 - 手机号登录
 class LoginScreen extends StatefulWidget {
@@ -217,9 +218,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           );
         } else {
-          // 老用户，更新全局状态并返回原页面
+          // 老用户，更新全局状态并跳转到主页，并显示开发者的话
           await Provider.of<AuthProvider>(context, listen: false).onLoginSuccess();
-          Navigator.of(context).pop(); // 关闭登录页面
+          Navigator.of(context).pushAndRemoveUntil(
+            CupertinoPageRoute(
+              builder: (context) => const MainScreen(
+                showDeveloperMessage: true,
+              ),
+            ),
+            (route) => false, // 清除所有之前的页面
+          );
         }
       }
     } catch (e) {

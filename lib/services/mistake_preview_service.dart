@@ -42,10 +42,16 @@ class MistakePreviewService {
       _recordKnowledgePointsInfo[recordId] ?? {};
   
   /// 加载记录数据
-  Future<MistakeRecord?> loadRecord(String recordId) async {
+  Future<MistakeRecord?> loadRecord(String recordId, {bool forceRefresh = false}) async {
     try {
+      // 如果强制刷新，清除 MistakeService 中的缓存
+      if (forceRefresh) {
+        _mistakeService.clearMistakeRecordCache(recordId);
+        _cachedRecords.remove(recordId);
+      }
+      
       // 如果已经缓存，检查是否需要刷新
-      if (_cachedRecords.containsKey(recordId)) {
+      if (_cachedRecords.containsKey(recordId) && !forceRefresh) {
         final cachedRecord = _cachedRecords[recordId]!;
         
         // 如果分析尚未完成，进行后台刷新
@@ -57,8 +63,8 @@ class MistakePreviewService {
         return cachedRecord;
       }
       
-      // 加载新记录
-      final record = await _mistakeService.getMistakeRecord(recordId);
+      // 加载新记录（强制从数据库获取最新数据）
+      final record = await _mistakeService.getMistakeRecord(recordId, forceRefresh: forceRefresh);
       if (record == null) {
         throw Exception('错题记录不存在');
       }

@@ -719,7 +719,6 @@ class _CameraScreenState extends State<CameraScreen> {
                             vertical: 6,
                           ),
                           onPressed: () => _viewQuestionDetail(index),
-                          minSize: 0,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -738,7 +737,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                 ),
                               ),
                             ],
-                          ),
+                          ), minimumSize: Size(0, 0),
                         ),
 
                         const SizedBox(width: 4),
@@ -750,7 +749,6 @@ class _CameraScreenState extends State<CameraScreen> {
                             vertical: 6,
                           ),
                           onPressed: () => _confirmDeleteQuestion(index),
-                          minSize: 0,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -769,7 +767,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                 ),
                               ),
                             ],
-                          ),
+                          ), minimumSize: Size(0, 0),
                         ),
                       ],
                     ),

@@ -105,8 +105,11 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
     }
     
     try {
-      // 使用服务加载记录数据
-      final record = await _previewService.loadRecord(recordId);
+      // 使用服务加载记录数据（首次加载时强制刷新，确保获取最新状态）
+      final record = await _previewService.loadRecord(
+        recordId, 
+        forceRefresh: forceReload || pageIndex == widget.initialIndex,
+      );
       
       if (!mounted) return;
       

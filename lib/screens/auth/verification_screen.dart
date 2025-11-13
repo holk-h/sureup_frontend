@@ -6,6 +6,7 @@ import '../../config/colors.dart';
 import '../../services/auth_service.dart';
 import '../../providers/auth_provider.dart';
 import 'profile_setup_screen.dart';
+import '../main_screen.dart';
 
 /// 验证码输入页面
 class VerificationScreen extends StatefulWidget {
@@ -144,14 +145,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
         );
       } else {
-        // 已有账号且档案完整，更新全局状态并返回
+        // 已有账号且档案完整，更新全局状态并跳转到主页
         await Provider.of<AuthProvider>(context, listen: false).onLoginSuccess();
         
-        // 关闭所有登录相关的页面，返回到调用登录的页面（ProfileScreen）
+        // 跳转到主页，清除所有登录相关的页面，并显示开发者的话
         if (mounted) {
-          // 先弹出验证码页面，再弹出登录页面
-          Navigator.of(context).pop(); // 弹出 VerificationScreen
-          Navigator.of(context).pop(); // 弹出 LoginScreen
+          Navigator.of(context).pushAndRemoveUntil(
+            CupertinoPageRoute(
+              builder: (context) => const MainScreen(
+                showDeveloperMessage: true,
+              ),
+            ),
+            (route) => false, // 清除所有之前的页面
+          );
         }
       }
     } catch (e) {

@@ -13,6 +13,8 @@ class QuestionGenerationService {
   late Client _client;
   late Databases _databases;
   Realtime? _realtime;
+  RealtimeSubscription? _currentSubscription;
+  StreamSubscription<dynamic>? _streamSubscription;
 
   /// 初始化客户端
   void initialize(Client client) {
@@ -106,11 +108,21 @@ class QuestionGenerationService {
       return controller.stream;
     }
 
+    // 取消之前的订阅和监听器
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    _currentSubscription?.close();
+    _currentSubscription = null;
+
     final subscription = _realtime!.subscribe([
       'databases.${ApiConfig.databaseId}.collections.question_generation_tasks.documents.$taskId'
     ]);
 
-    subscription.stream.listen((event) {
+    // 保存订阅引用
+    _currentSubscription = subscription;
+
+    // 保存 stream subscription 引用以便后续取消
+    _streamSubscription = subscription.stream.listen((event) {
       try {
         // Appwrite Realtime 事件结构
         if (event.events.isNotEmpty && event.events.any((e) => e.toString().contains('.update'))) {
@@ -146,9 +158,22 @@ class QuestionGenerationService {
     return controller.stream;
   }
 
+  /// 取消监听并关闭 realtime 连接
+  void cancelWatch() {
+    // 先取消 stream subscription
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    
+    // 然后关闭 realtime subscription
+    _currentSubscription?.close();
+    _currentSubscription = null;
+    
+    print('已关闭 Realtime 订阅');
+  }
+
   /// 取消监听
   void dispose() {
-    // Realtime 订阅会在页面销毁时自动取消
+    cancelWatch();
   }
 
   /// 获取用户的任务历史列表

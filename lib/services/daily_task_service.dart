@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import '../config/api_config.dart';
 import '../models/daily_task.dart';
 import 'auth_service.dart';
@@ -10,7 +12,7 @@ class DailyTaskService {
   factory DailyTaskService() => _instance;
   DailyTaskService._internal();
 
-  late Databases _databases;
+  Databases? _databases;
   final AuthService _authService = AuthService();
 
   /// 初始化
@@ -18,25 +20,76 @@ class DailyTaskService {
     _databases = Databases(client);
   }
 
+  /// 确保数据库已初始化
+  Databases get _db {
+    _databases ??= Databases(_authService.client);
+    return _databases!;
+  }
+
+  /// 确保时区数据已初始化
+  static bool _timezoneInitialized = false;
+  void _ensureTimezoneInitialized() {
+    if (!_timezoneInitialized) {
+      try {
+        tz_data.initializeTimeZones();
+        _timezoneInitialized = true;
+      } catch (e) {
+        // 如果已经初始化，忽略错误
+      }
+    }
+  }
+
+  /// 获取用户时区的今天日期范围（UTC）
+  /// 返回 [startUtc, endUtc]，用于查询数据库
+  List<DateTime> _getTodayRangeInUtc(String? userTimezone) {
+    _ensureTimezoneInitialized();
+    
+    // 默认使用 Asia/Shanghai
+    final timezoneStr = userTimezone ?? 'Asia/Shanghai';
+    
+    try {
+      final location = tz.getLocation(timezoneStr);
+      final now = tz.TZDateTime.now(location);
+      
+      // 用户时区的今天开始时间（00:00:00）
+      final todayStart = tz.TZDateTime(location, now.year, now.month, now.day);
+      // 用户时区的今天结束时间（23:59:59）
+      final todayEnd = tz.TZDateTime(location, now.year, now.month, now.day, 23, 59, 59);
+      
+      // 转换为 UTC
+      return [todayStart.toUtc(), todayEnd.toUtc()];
+    } catch (e) {
+      print('⚠️ 时区处理失败: $e，使用设备本地时区');
+      // 回退到设备本地时区
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+      return [todayStart.toUtc(), todayEnd.toUtc()];
+    }
+  }
+
   /// 获取今日任务
   Future<DailyTask?> getTodayTask() async {
     final userId = _authService.userId;
     if (userId == null) throw Exception('用户未登录');
 
-    final now = DateTime.now();
-    // 今天的开始时间（本地时区 00:00:00）
-    final todayStart = DateTime(now.year, now.month, now.day);
-    // 今天的结束时间（本地时区 23:59:59）
-    final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    // 获取用户时区
+    final userProfile = _authService.currentProfile;
+    final userTimezone = userProfile?.timezone;
+    
+    // 获取用户时区的今天日期范围（UTC）
+    final range = _getTodayRangeInUtc(userTimezone);
+    final todayStartUtc = range[0];
+    final todayEndUtc = range[1];
 
     try {
-      final response = await _databases.listDocuments(
+      final response = await _db.listDocuments(
         databaseId: ApiConfig.databaseId,
         collectionId: 'daily_tasks',
         queries: [
           Query.equal('userId', userId),
-          Query.greaterThanEqual('taskDate', todayStart.toIso8601String()),
-          Query.lessThanEqual('taskDate', todayEnd.toIso8601String()),
+          Query.greaterThanEqual('taskDate', todayStartUtc.toIso8601String()),
+          Query.lessThanEqual('taskDate', todayEndUtc.toIso8601String()),
           Query.limit(1),
         ],
       );
@@ -62,7 +115,7 @@ class DailyTaskService {
     final dateEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
 
     try {
-      final response = await _databases.listDocuments(
+      final response = await _db.listDocuments(
         databaseId: ApiConfig.databaseId,
         collectionId: 'daily_tasks',
         queries: [
@@ -97,7 +150,7 @@ class DailyTaskService {
         updatedItems.map((item) => item.toJson()).toList(),
       );
 
-      await _databases.updateDocument(
+      await _db.updateDocument(
         databaseId: ApiConfig.databaseId,
         collectionId: 'daily_tasks',
         documentId: taskId,
@@ -154,7 +207,7 @@ class DailyTaskService {
     if (userId == null) throw Exception('用户未登录');
 
     try {
-      final response = await _databases.createDocument(
+      final response = await _db.createDocument(
         databaseId: ApiConfig.databaseId,
         collectionId: ApiConfig.practiceSessionsCollectionId,
         documentId: 'unique()',
@@ -187,7 +240,7 @@ class DailyTaskService {
     if (userId == null) throw Exception('用户未登录');
 
     try {
-      final response = await _databases.listDocuments(
+      final response = await _db.listDocuments(
         databaseId: ApiConfig.databaseId,
         collectionId: 'daily_tasks',
         queries: [
@@ -214,7 +267,7 @@ class DailyTaskService {
     try {
       // 获取最近30天的任务
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-      final response = await _databases.listDocuments(
+      final response = await _db.listDocuments(
         databaseId: ApiConfig.databaseId,
         collectionId: 'daily_tasks',
         queries: [

@@ -495,13 +495,17 @@ class MistakeService {
   }
 
   /// 获取单个错题记录
-  Future<MistakeRecord?> getMistakeRecord(String recordId) async {
-    // 1. 检查缓存
-    if (_mistakeRecordCache.containsKey(recordId)) {
+  Future<MistakeRecord?> getMistakeRecord(String recordId, {bool forceRefresh = false}) async {
+    // 1. 检查缓存（如果不强制刷新）
+    if (!forceRefresh && _mistakeRecordCache.containsKey(recordId)) {
       return _mistakeRecordCache[recordId];
     }
     
-    // 2. 如果缓存中没有，从网络获取
+    // 2. 从网络获取（强制刷新时清除缓存）
+    if (forceRefresh) {
+      _mistakeRecordCache.remove(recordId);
+    }
+    
     try {
       final document = await _databases.getDocument(
         databaseId: ApiConfig.databaseId,
@@ -523,6 +527,11 @@ class MistakeService {
       print('获取错题记录失败: $e');
       return null;
     }
+  }
+  
+  /// 清除单个错题记录的缓存
+  void clearMistakeRecordCache(String recordId) {
+    _mistakeRecordCache.remove(recordId);
   }
 
   /// 重新分析错题（更新状态为 pending）

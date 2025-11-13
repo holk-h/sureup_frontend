@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/colors.dart';
 import '../../services/auth_service.dart';
 import '../../providers/auth_provider.dart';
+import '../main_screen.dart';
 
 /// 用户信息完善页面（首次注册）
 class ProfileSetupScreen extends StatefulWidget {
@@ -104,9 +105,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // 更新全局登录状态
       await Provider.of<AuthProvider>(context, listen: false).onLoginSuccess();
       
-      // 返回到主页（关闭登录流程）
+      // 跳转到主页，清除所有登录相关的页面，并显示开发者的话
       if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).pushAndRemoveUntil(
+          CupertinoPageRoute(
+            builder: (context) => const MainScreen(
+              showDeveloperMessage: true,
+            ),
+          ),
+          (route) => false, // 清除所有之前的页面
+        );
       }
     } catch (e) {
       print('创建用户档案失败: $e'); // 调试

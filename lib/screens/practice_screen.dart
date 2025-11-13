@@ -6,12 +6,11 @@ import '../widgets/cards/practice_mode_card.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../services/stats_service.dart';
-import '../services/knowledge_service.dart';
 import '../services/mistake_service.dart';
 import '../widgets/common/math_markdown_text.dart';
-import 'subject_detail_screen.dart';
 import 'question_generation_history_screen.dart';
 import 'mistake_preview_screen.dart';
+import 'mistake_selection_screen.dart';
 
 /// 练习页 - 智能练习
 class PracticeScreen extends StatefulWidget {
@@ -23,7 +22,6 @@ class PracticeScreen extends StatefulWidget {
 
 class _PracticeScreenState extends State<PracticeScreen> {
   final StatsService _statsService = StatsService();
-  final KnowledgeService _knowledgeService = KnowledgeService();
   final MistakeService _mistakeService = MistakeService();
   
   // 初始显示默认数据，不阻塞UI
@@ -206,8 +204,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                           description: '选择知识点专项突破',
                           icon: CupertinoIcons.square_grid_2x2,
                           color: AppColors.primary,
-                          onTap: _selectKnowledgePoint,
+                          onTap: null,
                           isCompact: true,
+                          enabled: false,
                         ),
                       ),
                       const SizedBox(width: AppConstants.spacingM),
@@ -435,241 +434,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
     );
   }
 
-  // 选择知识点
-  void _selectKnowledgePoint() {
-    _showSubjectPicker();
-  }
-
-  // 下面的方法暂时未使用，保留以供将来实现
-  Widget _buildSubjectPicker(List<Subject> subjects) {
-    return Container(
-      height: 300,
-      color: AppColors.cardBackground,
-      child: Column(
-        children: [
-          // 顶部栏
-          Container(
-            padding: const EdgeInsets.all(AppConstants.spacingM),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.divider),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  child: const Text('取消'),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const Text(
-                  '选择学科',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 60), // 占位
-              ],
-            ),
-          ),
-          
-          // 学科列表
-          Expanded(
-            child: ListView.builder(
-              itemCount: subjects.length,
-              itemBuilder: (context, index) {
-                final subject = subjects[index];
-                final subjectPoints = <KnowledgePoint>[];  // TODO: 获取真实数据
-                
-                return CupertinoButton(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spacingL,
-                    vertical: AppConstants.spacingM,
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showKnowledgePointPicker(subject, subjectPoints);
-                  },
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: subject.color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          subject.icon,
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                      ),
-                      const SizedBox(width: AppConstants.spacingM),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              subject.displayName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${subjectPoints.length}个知识点',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        CupertinoIcons.right_chevron,
-                        color: AppColors.textTertiary,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showKnowledgePointPicker(Subject subject, List<KnowledgePoint> knowledgePoints) {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext context) => _buildKnowledgePointPicker(subject, knowledgePoints),
-    );
-  }
-
-  Widget _buildKnowledgePointPicker(Subject subject, List<KnowledgePoint> knowledgePoints) {
-    return Container(
-      height: 400,
-      color: AppColors.cardBackground,
-      child: Column(
-        children: [
-          // 顶部栏
-          Container(
-            padding: const EdgeInsets.all(AppConstants.spacingM),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.divider),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  child: const Text('取消'),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                Text(
-                  '${subject.displayName} - 选择知识点',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 60), // 占位
-              ],
-            ),
-          ),
-          
-          // 知识点列表
-          Expanded(
-            child: ListView.builder(
-              itemCount: knowledgePoints.length,
-              itemBuilder: (context, index) {
-                final point = knowledgePoints[index];
-                return CupertinoButton(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spacingL,
-                    vertical: AppConstants.spacingM,
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _startKnowledgePointPractice(point);
-                  },
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: subject.color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          CupertinoIcons.book,
-                          size: 20,
-                          color: subject.color,
-                        ),
-                      ),
-                      const SizedBox(width: AppConstants.spacingM),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              point.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${point.mistakeCount}道错题',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // 掌握度
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getMasteryColor(point.masteryLevel).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${point.masteryLevel}%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: _getMasteryColor(point.masteryLevel),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // 选择错题
   void _selectMistake() {
@@ -691,111 +455,14 @@ class _PracticeScreenState extends State<PracticeScreen> {
       return;
     }
 
-    // 显示学科选择
-    _showSubjectPicker();
-  }
-
-  void _showSubjectPicker() {
-    final subjects = Subject.values;
-    
-    showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext context) => Container(
-        height: 500,
-        color: AppColors.cardBackground,
-        child: Column(
-          children: [
-            // 顶部栏
-            Container(
-              padding: const EdgeInsets.all(AppConstants.spacingM),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: AppColors.divider),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    child: const Text('取消'),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Text(
-                    '选择学科',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 60), // 占位
-                ],
-              ),
-            ),
-            
-            // 学科列表
-            Expanded(
-              child: ListView.builder(
-                itemCount: subjects.length,
-                itemBuilder: (context, index) {
-                  final subject = subjects[index];
-                  
-                  return CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppConstants.spacingL,
-                      vertical: AppConstants.spacingM,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
+    // 直接跳转到错题选择页面
                       Navigator.of(context).push(
                         CupertinoPageRoute(
-                          builder: (context) => SubjectDetailScreen(
-                            subject: subject,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: subject.color.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            subject.icon,
-                            style: const TextStyle(fontSize: 24),
-                          ),
-                        ),
-                        const SizedBox(width: AppConstants.spacingM),
-                        Expanded(
-                          child: Text(
-                            subject.displayName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        const Icon(
-                          CupertinoIcons.chevron_right,
-                          color: AppColors.textTertiary,
-                          size: 16,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+        builder: (context) => const MistakeSelectionScreen(),
       ),
     );
   }
+
 
   Widget _buildHistoryButton() {
     return GestureDetector(
@@ -863,167 +530,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     );
   }
 
-  Widget _buildMistakePicker(List<MistakeRecord> mistakes) {
-    return Container(
-      height: 500,
-      color: AppColors.cardBackground,
-      child: Column(
-        children: [
-          // 顶部栏
-          Container(
-            padding: const EdgeInsets.all(AppConstants.spacingM),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.divider),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  child: const Text('取消'),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const Text(
-                  '选择错题',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 60), // 占位
-              ],
-            ),
-          ),
-          
-          // 错题列表
-          Expanded(
-            child: ListView.builder(
-              itemCount: mistakes.length,
-              itemBuilder: (context, index) {
-                final mistake = mistakes[index];
-                final daysAgo = DateTime.now().difference(mistake.createdAt).inDays;
-                
-                return CupertinoButton(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spacingL,
-                    vertical: AppConstants.spacingM,
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _startMistakePractice(mistake);
-                  },
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          CupertinoIcons.xmark_circle,
-                          color: AppColors.error,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: AppConstants.spacingM),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              mistake.subject?.displayName ?? "错题",
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                color: AppColors.textPrimary,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                if (mistake.subject != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      mistake.subject!.displayName,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                if (mistake.subject != null)
-                                  const SizedBox(width: 8),
-                                Text(
-                                  daysAgo == 0 ? '今天' : '$daysAgo天前',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textTertiary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  // 开始知识点练习
-  void _startKnowledgePointPractice(KnowledgePoint point) {
-    // TODO: 接入真实的知识点练习数据
-  }
-
-  // 开始错题练习
-  void _startMistakePractice(MistakeRecord mistake) {
-    // TODO: 接入真实的错题练习数据
-  }
-
-  void _showEmptyMistakesDialog() {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('暂无错题'),
-        content: const Text('所有错题都已掌握，太棒了！\n可以先记录一些新错题～'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('好的'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getMasteryColor(int level) {
-    if (level >= 80) return AppColors.success;
-    if (level >= 60) return AppColors.primary;
-    if (level >= 40) return AppColors.warning;
-    return AppColors.error;
-  }
 
   /// 构建最近错题记录卡片
   Widget _buildRecentMistakesCard() {
@@ -1082,7 +589,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
                     // 刷新按钮
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      minSize: 0,
                       onPressed: _isRefreshingMistakes ? null : _refreshMistakes,
                       child: _isRefreshingMistakes
                           ? const SizedBox(
@@ -1096,7 +602,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                               CupertinoIcons.refresh,
                               size: 20,
                               color: AppColors.textSecondary,
-                            ),
+                            ), minimumSize: Size(0, 0),
                     ),
                   ],
                 ),
@@ -1315,10 +821,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
       return '${difference.inDays}天前';
     } else if (difference.inDays < 30) {
       final weeks = (difference.inDays / 7).floor();
-      return '${weeks}周前';
+      return '$weeks周前';
     } else {
       final months = (difference.inDays / 30).floor();
-      return '${months}个月前';
+      return '$months个月前';
     }
   }
 

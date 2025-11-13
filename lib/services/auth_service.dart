@@ -4,6 +4,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../config/api_config.dart';
 import '../models/user_profile.dart';
 import 'local_storage_service.dart';
+import 'notification_service.dart';
 
 /// 认证服务 - 处理用户登录、注册、会话管理
 class AuthService {
@@ -16,6 +17,7 @@ class AuthService {
   late Databases _databases;
   late Functions _functions;
   final LocalStorageService _localStorage = LocalStorageService();
+  final NotificationService _notificationService = NotificationService();
   
   String? _userId;  // 当前用户ID
   String? _userPhone;  // 当前用户手机号
@@ -163,6 +165,14 @@ class AuthService {
       
       print('登录状态已保存到本地'); // 调试
       
+      // 注册 APNs push target（如果是 iOS 设备）
+      try {
+        await _notificationService.registerPushTarget(_account);
+      } catch (e) {
+        print('⚠️ 注册 push target 时发生错误: $e');
+        // 不影响登录流程
+      }
+      
       // 返回true表示需要完善信息（新用户且没有档案）
       final needsSetup = isNewUser && !hasProfile;
       print('needsSetup: $needsSetup (isNewUser=$isNewUser, hasProfile=$hasProfile)'); // 调试
@@ -266,6 +276,14 @@ class AuthService {
       await _saveLoginState(userId, email ?? '');
       
       print('苹果登录状态已保存到本地'); // 调试
+      
+      // 注册 APNs push target（如果是 iOS 设备）
+      try {
+        await _notificationService.registerPushTarget(_account);
+      } catch (e) {
+        print('⚠️ 注册 push target 时发生错误: $e');
+        // 不影响登录流程
+      }
       
       // 9. 返回是否需要完善信息
       final needsSetup = isNewUser && !hasProfile;

@@ -16,11 +16,13 @@ import 'question_generation_progress_screen.dart';
 class KnowledgePointMistakesScreen extends StatefulWidget {
   final KnowledgePoint knowledgePoint;
   final bool initialSelectionMode; // 是否默认开启选择模式
+  final bool showSelectionButton; // 是否显示选择按钮
 
   const KnowledgePointMistakesScreen({
     super.key,
     required this.knowledgePoint,
     this.initialSelectionMode = false,
+    this.showSelectionButton = true, // 默认显示选择按钮
   });
 
   @override
@@ -33,11 +35,9 @@ class _KnowledgePointMistakesScreenState
   final _mistakeService = MistakeService();
   final _questionGenerationService = QuestionGenerationService();
 
-  List<MistakeRecord>? _mistakes;
+  List<Question>? _questions;
   bool _isLoading = true;
   String? _error;
-  // 缓存题目内容：questionId -> Question
-  final Map<String, Question> _questionCache = {};
   
   // 选择模式
   bool _isSelectionMode = false;
@@ -48,10 +48,10 @@ class _KnowledgePointMistakesScreenState
     super.initState();
     // 如果指定了初始选择模式，则开启
     _isSelectionMode = widget.initialSelectionMode;
-    _loadMistakes();
+    _loadQuestions();
   }
 
-  Future<void> _loadMistakes() async {
+  Future<void> _loadQuestions() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -63,7 +63,7 @@ class _KnowledgePointMistakesScreenState
 
       if (userId == null) {
         setState(() {
-          _mistakes = [];
+          _questions = [];
           _isLoading = false;
         });
         return;
@@ -72,36 +72,26 @@ class _KnowledgePointMistakesScreenState
       final client = authProvider.authService.client;
       _mistakeService.initialize(client);
 
-      // 获取该知识点关联的所有题目的错题记录
-      final allMistakes = await _mistakeService.getUserMistakes(userId);
+      // 直接使用知识点的 questionIds 字段，从 questions 集合获取题目
+      final questionIds = widget.knowledgePoint.questionIds;
       
-      // 筛选出包含该知识点的错题
-      final filteredMistakes = allMistakes.where((mistake) {
-        // 检查错题记录的 questionId 是否在知识点的 questionIds 列表中
-        return mistake.questionId != null &&
-            widget.knowledgePoint.questionIds.contains(mistake.questionId);
-      }).toList();
-
-      // 加载所有错题对应的题目内容
-      final questionIds = filteredMistakes
-          .where((m) => m.questionId != null)
-          .map((m) => m.questionId!)
-          .toSet()
-          .toList();
-      
-      if (questionIds.isNotEmpty) {
-        final questions = await _mistakeService.getQuestions(questionIds);
-        for (final question in questions) {
-          _questionCache[question.id] = question;
-        }
+      if (questionIds.isEmpty) {
+        setState(() {
+          _questions = [];
+          _isLoading = false;
+        });
+        return;
       }
 
+      // 从 questions 集合获取题目
+        final questions = await _mistakeService.getQuestions(questionIds);
+
       setState(() {
-        _mistakes = filteredMistakes;
+        _questions = questions;
         _isLoading = false;
       });
     } catch (e) {
-      print('加载错题失败: $e');
+      print('加载题目失败: $e');
       setState(() {
         _error = '加载失败：$e';
         _isLoading = false;
@@ -141,10 +131,11 @@ class _KnowledgePointMistakesScreenState
                 ),
               ],
             ),
-            rightAction: _mistakes != null && _mistakes!.isNotEmpty
+            rightAction: _questions != null && _questions!.isNotEmpty
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (widget.showSelectionButton)
                       CupertinoButton(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         onPressed: _toggleSelectionMode,
@@ -160,7 +151,7 @@ class _KnowledgePointMistakesScreenState
                       ),
                       CupertinoButton(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    onPressed: _loadMistakes,
+                    onPressed: _loadQuestions,
                     child: const Icon(
                       CupertinoIcons.refresh,
                       size: 22,
@@ -175,11 +166,11 @@ class _KnowledgePointMistakesScreenState
                 ? _buildLoadingState()
                 : _error != null
                     ? _buildErrorState()
-                    : _mistakes == null || _mistakes!.isEmpty
+                    : _questions == null || _questions!.isEmpty
                         ? _buildEmptyState()
                         : Column(
                             children: [
-                              Expanded(child: _buildMistakesList()),
+                              Expanded(child: _buildQuestionsList()),
                               if (_isSelectionMode && _selectedQuestionIds.isNotEmpty)
                                 _buildSelectionBar(),
                             ],
@@ -201,7 +192,7 @@ class _KnowledgePointMistakesScreenState
           ),
           const SizedBox(height: 16),
           Text(
-            '正在加载错题...',
+            '正在加载题目...',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -235,7 +226,7 @@ class _KnowledgePointMistakesScreenState
             ),
             const SizedBox(height: 24),
             CupertinoButton.filled(
-              onPressed: _loadMistakes,
+              onPressed: _loadQuestions,
               child: const Text('重试'),
             ),
           ],
@@ -266,7 +257,7 @@ class _KnowledgePointMistakesScreenState
             ),
             const SizedBox(height: AppConstants.spacingM),
             const Text(
-              '暂无错题',
+              '暂无题目',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -275,7 +266,7 @@ class _KnowledgePointMistakesScreenState
             ),
             const SizedBox(height: 8),
             const Text(
-              '该知识点还没有关联的错题',
+              '该知识点还没有关联的题目',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -288,7 +279,7 @@ class _KnowledgePointMistakesScreenState
     );
   }
 
-  Widget _buildMistakesList() {
+  Widget _buildQuestionsList() {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -300,23 +291,23 @@ class _KnowledgePointMistakesScreenState
           ),
         ),
 
-        // 错题列表
+        // 题目列表
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final mistake = _mistakes![index];
+                final question = _questions![index];
                 return Padding(
                   padding: EdgeInsets.only(
-                    bottom: index < _mistakes!.length - 1
+                    bottom: index < _questions!.length - 1
                         ? AppConstants.spacingM
                         : 0,
                   ),
-                  child: _buildMistakeCard(mistake),
+                  child: _buildQuestionCard(question, index),
                 );
               },
-              childCount: _mistakes!.length,
+              childCount: _questions!.length,
             ),
           ),
         ),
@@ -328,14 +319,13 @@ class _KnowledgePointMistakesScreenState
     );
   }
 
-  Widget _buildMistakeCard(MistakeRecord mistake) {
-    final mistakeIndex = _mistakes!.indexOf(mistake);
-    final questionId = mistake.questionId;
-    final isSelected = questionId != null && _selectedQuestionIds.contains(questionId);
+  Widget _buildQuestionCard(Question question, int index) {
+    final questionId = question.id;
+    final isSelected = _selectedQuestionIds.contains(questionId);
     
     return GestureDetector(
       onTap: () {
-        if (_isSelectionMode && questionId != null) {
+        if (_isSelectionMode) {
           setState(() {
             if (isSelected) {
               _selectedQuestionIds.remove(questionId);
@@ -344,18 +334,12 @@ class _KnowledgePointMistakesScreenState
             }
           });
         } else {
-        Navigator.of(context).push(
-          CupertinoPageRoute(
-            builder: (context) => MistakePreviewScreen(
-              mistakeRecordIds: _mistakes!.map((m) => m.id).toList(),
-              initialIndex: mistakeIndex,
-            ),
-          ),
-        );
+          // 导航到错题预览页面
+          _navigateToMistakePreview(questionId, index);
         }
       },
       onLongPress: () {
-        if (!_isSelectionMode && questionId != null) {
+        if (!_isSelectionMode) {
           setState(() {
             _isSelectionMode = true;
             _selectedQuestionIds.add(questionId);
@@ -425,14 +409,13 @@ class _KnowledgePointMistakesScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 题目内容（最多两行）
-                  if (mistake.questionId != null && _questionCache.containsKey(mistake.questionId))
                     ConstrainedBox(
                       constraints: const BoxConstraints(
                         maxHeight: 42, // 大约两行的高度（14 * 1.5 * 2）
                       ),
                       child: ClipRect(
                         child: MathMarkdownText(
-                          text: _questionCache[mistake.questionId]!.content,
+                        text: question.content,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -441,23 +424,11 @@ class _KnowledgePointMistakesScreenState
                           ),
                         ),
                       ),
-                    )
-                  else
-                    Text(
-                      '加载中...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       // 题目类型标签
-                      if (mistake.questionId != null && _questionCache.containsKey(mistake.questionId))
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -469,21 +440,12 @@ class _KnowledgePointMistakesScreenState
                             ),
                           ),
                           child: Text(
-                            _questionCache[mistake.questionId]!.type.displayName,
+                          question.type.displayName,
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
-                          ),
-                        ),
-                      if (mistake.questionId != null && _questionCache.containsKey(mistake.questionId))
-                        const SizedBox(width: 8),
-                      Text(
-                        _getTimeAgo(mistake.createdAt),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -502,23 +464,8 @@ class _KnowledgePointMistakesScreenState
     );
   }
 
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}天前';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}小时前';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}分钟前';
-    } else {
-      return '刚刚';
-    }
-  }
-
   Widget _buildStatsCard() {
-    final totalMistakes = _mistakes!.length;
+    final totalQuestions = _questions!.length;
     final masteryColor = _getMasteryColor(widget.knowledgePoint.masteryLevel);
 
     return Container(
@@ -590,8 +537,8 @@ class _KnowledgePointMistakesScreenState
             children: [
               Expanded(
                 child: _buildStatItem(
-                  '$totalMistakes',
-                  '错题数',
+                  '$totalQuestions',
+                  '题目数',
                   CupertinoIcons.doc_text_fill,
                   AppColors.mistake,
                 ),
@@ -692,6 +639,125 @@ class _KnowledgePointMistakesScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _navigateToMistakePreview(String questionId, int questionIndex) async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userProfile?.id;
+
+      if (userId == null) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('错误'),
+            content: const Text('请先登录'),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      final client = authProvider.authService.client;
+      _mistakeService.initialize(client);
+
+      // 显示加载提示
+      showCupertinoDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const CupertinoAlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CupertinoActivityIndicator(),
+              SizedBox(height: 16),
+              Text('正在加载错题记录...'),
+            ],
+          ),
+        ),
+      );
+
+      // 获取用户的所有错题记录
+      final allMistakes = await _mistakeService.getUserMistakes(userId);
+      
+      // 筛选出匹配该 questionId 的错题记录
+      final matchingMistakes = allMistakes
+          .where((mistake) => mistake.questionId == questionId)
+          .toList();
+
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (matchingMistakes.isEmpty) {
+        // 如果没有找到错题记录，显示提示
+        if (mounted) {
+          showCupertinoDialog(
+            context: context,
+            builder: (context) => CupertinoAlertDialog(
+              title: const Text('提示'),
+              content: const Text('该题目还没有错题记录'),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('知道了'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // 获取错题记录的 ID 列表
+      final mistakeRecordIds = matchingMistakes.map((m) => m.id).toList();
+      
+      // 找到当前题目在列表中的索引
+      // 如果有多个错题记录，默认显示第一个
+      final initialIndex = 0;
+
+      // 导航到错题预览页面
+      if (mounted) {
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (context) => MistakePreviewScreen(
+              mistakeRecordIds: mistakeRecordIds,
+              initialIndex: initialIndex,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('导航到错题预览失败: $e');
+      
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 显示错误提示
+      if (mounted) {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('加载失败'),
+            content: Text('加载错题记录失败：$e'),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _createGenerationTask() async {
