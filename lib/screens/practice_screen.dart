@@ -756,20 +756,15 @@ class _PracticeScreenState extends State<PracticeScreen> {
                                   : null;
                               
                               if (question != null && question.content.isNotEmpty) {
-                                return ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 20, // 单行高度（13 * 1.2 ≈ 15.6，留一些余量）
+                                return MathMarkdownText(
+                                  text: question.content,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                    height: 1.2,
                                   ),
-                                  child: ClipRect(
-                                    child: MathMarkdownText(
-                                      text: question.content,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppColors.textSecondary,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 );
                               } else {
                                 return const Text(
