@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/services.dart';
@@ -8,11 +10,9 @@ import '../config/constants.dart';
 import '../services/mistake_service.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/common/loading_state_widget.dart';
-import '../widgets/common/selectable_list_item.dart';
-import '../widgets/common/image_preview_grid.dart';
 import '../widgets/common/camera_action_buttons.dart';
 import '../widgets/common/local_image_preview.dart';
-import 'mistake_analysis_progress_screen.dart';
+import 'mistake_preview_screen.dart';
 
 /// 单图识别多题屏幕
 /// 支持拍摄一张整页试卷图片，识别并裁剪多个题目
@@ -29,8 +29,7 @@ enum _Step {
   detecting,        // 步骤2: 检测题目
   selectQuestions,  // 步骤3: 选择题目
   cropping,         // 步骤4: 裁剪题目
-  preview,          // 步骤5: 预览确认
-  submitting,       // 步骤6: 提交分析
+  submitting,       // 步骤5: 提交分析
 }
 
 class _SingleImageMultiQuestionsScreenState
@@ -100,8 +99,6 @@ class _SingleImageMultiQuestionsScreenState
         return _buildSelectQuestionsStep();
       case _Step.cropping:
         return _buildCroppingStep();
-      case _Step.preview:
-        return _buildPreviewStep();
       case _Step.submitting:
         return _buildSubmittingStep();
     }
@@ -181,35 +178,65 @@ class _SingleImageMultiQuestionsScreenState
   Widget _buildSelectQuestionsStep() {
     return Column(
       children: [
-        Expanded(
-          child: SingleChildScrollView(
+        // 原图显示（圆角卡片，尺寸匹配图片）
+        Flexible(
+          child: _originalImagePath != null
+              ? SingleChildScrollView(
             padding: const EdgeInsets.all(AppConstants.spacingL),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 原图缩略图
-                if (_originalImagePath != null) ...[
-                  LocalImagePreview(
-                    imagePath: _originalImagePath!,
-                    height: 150,
+                  child: Center(
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width - 
+                            AppConstants.spacingL * 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.file(
+                          File(_originalImagePath!),
+                          fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 24),
-                ],
-                
-                // 题目列表
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox(),
+        ),
+        
+        // 题目标签选择区域
+        Container(
+          padding: const EdgeInsets.all(AppConstants.spacingL),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            border: Border(
+              top: BorderSide(color: AppColors.divider, width: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                 const Text(
                   '请选择需要记录的题目',
                   style: TextStyle(
-                    fontSize: 18,
+                  fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 16),
+              const SizedBox(height: 12),
                 
                 if (_detectedQuestions.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.all(32),
+                  padding: EdgeInsets.symmetric(vertical: 16),
                     child: Text(
                       '未检测到题目',
                       style: TextStyle(
@@ -220,14 +247,14 @@ class _SingleImageMultiQuestionsScreenState
                     ),
                   )
                 else
-                  ..._detectedQuestions.map((question) {
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _detectedQuestions.map((question) {
                     final isSelected = _selectedQuestions.contains(question);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: SelectableListItem(
-                        title: question,
-                        isSelected: isSelected,
+                    return GestureDetector(
                         onTap: () {
+                        HapticFeedback.selectionClick();
                           setState(() {
                             if (isSelected) {
                               _selectedQuestions.remove(question);
@@ -236,25 +263,47 @@ class _SingleImageMultiQuestionsScreenState
                             }
                           });
                         },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+          decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary.withOpacity(0.15)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.divider,
+                            width: isSelected ? 2 : 1.5,
+            ),
+          ),
+                        child: Text(
+                          question,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          ),
+                        ),
                       ),
                     );
-                  }),
-              ],
-            ),
-          ),
-        ),
-        
-        // 底部按钮
-        Container(
-          padding: const EdgeInsets.all(AppConstants.spacingL),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(color: AppColors.divider, width: 0.5),
-            ),
-          ),
-          child: SafeArea(
+                  }).toList(),
+                ),
+              
+              const SizedBox(height: 16),
+              
+              // 确认按钮（无白色背景）
+              SafeArea(
             top: false,
+                child: SizedBox(
+                  width: double.infinity,
             child: CupertinoButton.filled(
               onPressed: _selectedQuestions.isEmpty
                   ? null
@@ -267,6 +316,9 @@ class _SingleImageMultiQuestionsScreenState
                 ),
               ),
             ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -282,69 +334,7 @@ class _SingleImageMultiQuestionsScreenState
     );
   }
 
-  // 步骤5: 预览确认
-  Widget _buildPreviewStep() {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppConstants.spacingL),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '预览裁剪结果',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                ImagePreviewGrid(
-                  imageIds: _croppedImageIds,
-                  onDelete: (index) {
-                    setState(() {
-                      _croppedImageIds.removeAt(index);
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        
-        // 底部按钮
-        Container(
-          padding: const EdgeInsets.all(AppConstants.spacingL),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(color: AppColors.divider, width: 0.5),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: CupertinoButton.filled(
-              onPressed: _croppedImageIds.isEmpty
-                  ? null
-                  : _submitForAnalysis,
-              child: Text(
-                '提交分析 (${_croppedImageIds.length}题)',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 步骤6: 提交中
+  // 步骤5: 提交中
   Widget _buildSubmittingStep() {
     return const LoadingStateWidget(
       message: '正在提交分析...',
@@ -460,41 +450,89 @@ class _SingleImageMultiQuestionsScreenState
 
     try {
       final selectedList = _selectedQuestions.toList();
-      final croppedIds = <String>[];
-
-      // 并行裁剪所有选中的题目
-      for (var i = 0; i < selectedList.length; i++) {
-        if (!mounted) return;
-
-        setState(() {
-          _croppingCurrent = i + 1;
-        });
-
-        try {
-          final croppedId = await _mistakeService.cropQuestion(
-            _originalImageFileId!,
-            selectedList[i],
-          );
-          croppedIds.add(croppedId);
-        } catch (e) {
-          print('裁剪题目 ${selectedList[i]} 失败: $e');
-          // 继续裁剪其他题目
-        }
-      }
+      
+      // 1. 创建一个包含所有题目的裁剪任务
+      final taskId = await _mistakeService.createCropTasks(
+        _originalImageFileId!,
+        selectedList,
+      );
 
       if (!mounted) return;
 
-      if (croppedIds.isEmpty) {
+      // 2. 监听任务状态更新
+      StreamSubscription<Map<String, dynamic>>? subscription;
+      
+      subscription = _mistakeService.watchCropTask(taskId).listen((task) {
+        if (!mounted) return;
+        
+        final status = task['status'] as String;
+        final totalCount = task['totalCount'] as int? ?? 0;
+        final completedCount = task['completedCount'] as int? ?? 0;
+        final croppedImageIds = (task['croppedImageIds'] as List<dynamic>?)?.cast<String>() ?? [];
+        
         setState(() {
-          _croppingError = '所有题目裁剪失败，请重试';
+          _croppingTotal = totalCount;
+          _croppingCurrent = completedCount;
+          _croppedImageIds = croppedImageIds;
         });
-        return;
-      }
-
-      setState(() {
-        _croppedImageIds = croppedIds;
-        _currentStep = _Step.preview;
+        
+        // 处理完成或失败
+        if (status == 'completed') {
+          subscription!.cancel();
+          if (croppedImageIds.isEmpty) {
+            setState(() {
+              _croppingError = '所有题目裁剪失败，请重试';
+            });
+          } else {
+            // 裁剪完成，直接提交分析
+            _submitForAnalysis();
+          }
+        } else if (status == 'failed') {
+          subscription!.cancel();
+          final error = task['error'] as String? ?? '裁剪失败';
+          if (croppedImageIds.isEmpty) {
+            setState(() {
+              _croppingError = error;
+            });
+          } else {
+            // 部分成功，直接提交分析
+            _submitForAnalysis();
+          }
+        }
+      }, onError: (error) {
+        if (!mounted) return;
+        subscription!.cancel();
+        setState(() {
+          _croppingError = '监听任务更新失败: ${error.toString()}';
+        });
       });
+
+      // 等待任务完成或超时
+      try {
+        await _mistakeService.watchCropTask(taskId).firstWhere((task) {
+          final status = task['status'] as String;
+          return status == 'completed' || status == 'failed';
+        }).timeout(
+          const Duration(minutes: 5),
+        );
+      } on TimeoutException {
+        if (!mounted) return;
+        subscription.cancel();
+        if (_croppedImageIds.isEmpty) {
+          setState(() {
+            _croppingError = '裁剪任务超时，请重试';
+          });
+        } else {
+          // 部分成功，直接提交分析
+          _submitForAnalysis();
+        }
+      } catch (e) {
+        if (!mounted) return;
+        subscription.cancel();
+        setState(() {
+          _croppingError = '裁剪失败: ${e.toString()}';
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -521,21 +559,24 @@ class _SingleImageMultiQuestionsScreenState
       
       final userId = userProfile.id;
 
-      // 为每个裁剪图片创建mistake_record
+      // 为每个裁剪图片创建mistake_record（使用已上传的图片ID）
       final questions = _croppedImageIds.map((id) => [id]).toList();
       
-      await _mistakeService.createMistakeFromQuestions(
+      // 创建错题记录（图片已经上传，直接使用ID）
+      final recordIds = await _mistakeService.createMistakeFromImageIds(
         userId: userId,
-        questions: questions,
+        imageIds: questions,
+        userProfile: userProfile,
       );
 
       if (!mounted) return;
 
-      // 导航到分析进度页面
+      // 直接跳转到预览页面（记录已创建，分析会自动开始）
       Navigator.of(context).pushReplacement(
         CupertinoPageRoute(
-          builder: (context) => MistakeAnalysisProgressScreen(
-            questions: questions,
+          builder: (context) => MistakePreviewScreen(
+            mistakeRecordIds: recordIds,
+            initialIndex: 0,
           ),
         ),
       );
@@ -543,7 +584,7 @@ class _SingleImageMultiQuestionsScreenState
       if (!mounted) return;
       _showErrorDialog('提交失败', e.toString());
       setState(() {
-        _currentStep = _Step.preview;
+        _currentStep = _Step.cropping;
       });
     }
   }
@@ -571,14 +612,9 @@ class _SingleImageMultiQuestionsScreenState
           _croppingError = null;
         });
         break;
-      case _Step.preview:
-        setState(() {
-          _currentStep = _Step.selectQuestions;
-        });
-        break;
       case _Step.submitting:
         setState(() {
-          _currentStep = _Step.preview;
+          _currentStep = _Step.cropping;
         });
         break;
     }

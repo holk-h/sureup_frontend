@@ -1479,78 +1479,78 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.7,
-            decoration: const BoxDecoration(
-              color: CupertinoColors.systemBackground,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // 头部
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemBackground,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: AppColors.divider,
-                        width: 0.5,
-                      ),
-                    ),
+        decoration: const BoxDecoration(
+          color: CupertinoColors.systemBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+          child: Column(
+          children: [
+            // 头部
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemBackground,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.divider,
+                    width: 0.5,
                   ),
-                  child: Row(
-                    children: [
+                ),
+              ),
+              child: Row(
+                children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                             const Text(
-                              '选择答案',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
+                          '选择答案',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                             const SizedBox(height: 4),
-                            Text(
+                        Text(
                               selectedOptions.isEmpty
                                   ? '可多选，请选择正确答案选项'
                                   : '已选择 ${selectedOptions.length} 项',
                               style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.pop(context),
-                        child: const Icon(
-                          CupertinoIcons.xmark_circle_fill,
-                          color: AppColors.textTertiary,
-                          size: 28,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                // 选项列表
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: question.options!.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final option = entry.value;
-                      // 提取选项的真实标识符（如果选项以A.、B.等开头）
-                      final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
-                      final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
-                      final optionContent = optionMatch?.group(2) ?? option;
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.pop(context),
+                    child: const Icon(
+                      CupertinoIcons.xmark_circle_fill,
+                      color: AppColors.textTertiary,
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 选项列表
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+            children: question.options!.asMap().entries.map((entry) {
+              final index = entry.key;
+              final option = entry.value;
+              // 提取选项的真实标识符（如果选项以A.、B.等开头）
+              final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
+              final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
+              final optionContent = optionMatch?.group(2) ?? option;
                       final isSelected = selectedOptions.contains(optionLabel);
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
                         child: GestureDetector(
                           onTap: () {
                             HapticFeedback.selectionClick();
@@ -1561,43 +1561,43 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                                 selectedOptions.add(optionLabel);
                               }
                             });
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
+                },
+                child: Container(
+                  width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
                               color: isSelected
                                   ? AppColors.primary.withOpacity(0.1)
                                   : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
                                 color: isSelected
                                     ? AppColors.primary
                                     : AppColors.divider,
                                 width: isSelected ? 2 : 1,
-                              ),
-                              boxShadow: AppColors.shadowSoft,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                          ),
+                          boxShadow: AppColors.shadowSoft,
+                  ),
+                  child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                                 // 选中状态指示器
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
                                     color: isSelected
                                         ? AppColors.primary
                                         : AppColors.primary.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
+                          shape: BoxShape.circle,
+                                border: Border.all(
                                       color: isSelected
                                           ? AppColors.primary
                                           : AppColors.primary.withOpacity(0.3),
                                       width: isSelected ? 0 : 1.5,
-                                    ),
-                                  ),
-                                  child: Center(
+                                ),
+                        ),
+                        child: Center(
                                     child: isSelected
                                         ? const Icon(
                                             CupertinoIcons.checkmark,
@@ -1605,42 +1605,42 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                                             size: 18,
                                           )
                                         : Text(
-                                            optionLabel,
+                            optionLabel,
                                             style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                                               color: isSelected
                                                   ? Colors.white
                                                   : AppColors.primary,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: MathMarkdownText(
-                                      text: optionContent,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: isSelected
-                                            ? AppColors.primary
-                                            : AppColors.textPrimary,
-                                        height: 1.4,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w600
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: MathMarkdownText(
+                                  text: optionContent,
+                                      style: TextStyle(
+                                    fontSize: 15,
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : AppColors.textPrimary,
+                                    height: 1.4,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                        ),
+                  ),
+                ),
+              );
+            }).toList(),
                   ),
                 ),
                 // 底部操作按钮
@@ -1681,10 +1681,10 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
+          ),
+          ),
+        ],
+        ),
                 ),
               ],
             ),

@@ -71,10 +71,6 @@ class CameraActionButtons extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.accentLight.withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.accent,
-                width: 1,
-              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

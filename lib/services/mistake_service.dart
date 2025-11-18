@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import '../config/api_config.dart';
@@ -346,6 +347,86 @@ class MistakeService {
     }
   }
   
+  /// 创建错题记录（直接使用图片ID，无需上传）
+  /// [imageIds] 题目列表，每个题目包含一张或多张已上传的图片ID
+  /// [userProfile] 用户档案，用于权限检查
+  /// 返回创建的错题记录 ID 列表
+  Future<List<String>> createMistakeFromImageIds({
+    required String userId,
+    required List<List<String>> imageIds,
+    String? note,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      // 🔒 权限检查：每日错题录入限制
+      if (userProfile != null) {
+        final subscriptionStatus = userProfile.subscriptionStatus ?? 'free';
+        final isPremium = subscriptionStatus == 'active' &&
+            userProfile.subscriptionExpiryDate != null &&
+            userProfile.subscriptionExpiryDate!.isAfter(DateTime.now().toUtc());
+
+        if (!isPremium) {
+          // 免费用户每天最多 3 个
+          const dailyLimit = 3;
+          final todayCount = userProfile.todayMistakeRecords ?? 0;
+          if (todayCount >= dailyLimit) {
+            throw Exception('今日错题记录已达上限（$dailyLimit 次），升级会员即可无限使用');
+          }
+          print('💡 今日还可录入 ${dailyLimit - todayCount} 次错题');
+        }
+      }
+
+      // 直接使用图片ID创建错题记录，无需上传
+      print('开始创建 ${imageIds.length} 条错题记录（使用已有图片ID）...');
+      
+      final createFutures = imageIds.map((fileIds) {
+        final data = {
+          'userId': userId,
+          'questionId': null,
+          'originalImageIds': fileIds, // 多张图片ID列表
+          'analysisStatus': 'pending',
+          'masteryStatus': 'notStarted',
+          'reviewCount': 0,
+          'correctCount': 0,
+          'moduleIds': [],
+          'knowledgePointIds': [],
+          'errorReason': null,
+          if (note != null) 'note': note,
+        };
+        
+        return _databases.createDocument(
+          databaseId: ApiConfig.databaseId,
+          collectionId: ApiConfig.mistakeRecordsCollectionId,
+          documentId: ID.unique(),
+          data: data,
+        );
+      }).toList();
+      
+      final results = await Future.wait(createFutures, eagerError: false);
+      
+      final List<String> recordIds = [];
+      for (var i = 0; i < results.length; i++) {
+        try {
+          final document = results[i];
+          recordIds.add(document.$id);
+          print('成功创建错题记录 ${i + 1}/${imageIds.length}: ${document.$id}');
+        } catch (e) {
+          print('创建错题记录失败（跳过题目 ${i + 1}）: $e');
+        }
+      }
+      
+      if (recordIds.isEmpty) {
+        throw Exception('所有错题记录创建失败');
+      }
+      
+      print('成功创建 ${recordIds.length}/${imageIds.length} 条错题记录');
+      return recordIds;
+    } catch (e) {
+      print('创建错题记录失败: $e');
+      rethrow;
+    }
+  }
+
   /// 创建错题记录（拍照录入）- 每张照片作为单独的题目
   /// 返回创建的错题记录 ID
   /// subject 由 AI 自动识别，不需要手动传入
@@ -887,11 +968,15 @@ class MistakeService {
   /// [imageFileId] 原图文件ID
   /// [questionNumber] 题号，如"第一题"、"第7题"
   /// 返回裁剪后的图片ID
-  Future<String> cropQuestion(String imageFileId, String questionNumber) async {
+  /// 创建裁剪任务（异步处理，支持多个题目）
+  /// [imageFileId] 原图文件ID
+  /// [questionNumbers] 题号列表
+  /// 返回任务ID
+  Future<String> createCropTask(String imageFileId, List<String> questionNumbers) async {
     try {
       final requestBody = {
         'imageFileId': imageFileId,
-        'questionNumber': questionNumber,
+        'questionNumbers': questionNumbers,
       };
 
       final execution = await _functions.createExecution(
@@ -902,34 +987,115 @@ class MistakeService {
       final response = jsonDecode(execution.responseBody);
 
       if (response['success'] != true) {
-        throw Exception(response['message'] ?? '题目裁剪失败');
+        throw Exception(response['message'] ?? '创建裁剪任务失败');
       }
 
       final data = response['data'] as Map<String, dynamic>;
-      return data['croppedImageId'] as String;
+      return data['taskId'] as String;
     } catch (e) {
-      print('题目裁剪失败 ($questionNumber): $e');
+      print('创建裁剪任务失败: $e');
       rethrow;
     }
   }
 
-  /// 批量裁剪多个题目
+  /// 监听裁剪任务状态（通过 Realtime API）
+  /// [taskId] 任务ID
+  /// 返回 Stream，发送任务更新事件
+  Stream<Map<String, dynamic>> watchCropTask(String taskId) {
+    final controller = StreamController<Map<String, dynamic>>.broadcast();
+
+    try {
+      // 订阅任务更新
+      final subscription = _realtime.subscribe([
+        'databases.${ApiConfig.databaseId}.collections.question_cropping_tasks.documents.$taskId'
+      ]);
+
+      subscription.stream.listen((event) {
+        try {
+          if (event.events.isNotEmpty && 
+              event.events.any((e) => e.toString().contains('.update'))) {
+            final payload = event.payload as Map<String, dynamic>?;
+            
+            if (payload != null) {
+              final task = {
+                'taskId': payload['\$id'],
+                'status': payload['status'] as String? ?? 'pending',
+                'totalCount': payload['totalCount'] as int? ?? 0,
+                'completedCount': payload['completedCount'] as int? ?? 0,
+                'croppedImageIds': (payload['croppedImageIds'] as List<dynamic>?)?.cast<String>() ?? [],
+                'error': payload['error'] as String?,
+                'createdAt': payload['\$createdAt'],
+                'updatedAt': payload['\$updatedAt'],
+              };
+              controller.add(task);
+              
+              // 如果任务完成或失败，关闭订阅
+              final status = task['status'] as String;
+              if (status == 'completed' || status == 'failed') {
+                subscription.close();
+              }
+            }
+          }
+        } catch (e) {
+          print('处理裁剪任务更新失败: $e');
+        }
+      }, onError: (error) {
+        print('裁剪任务订阅错误: $error');
+        controller.addError(error);
+      });
+    } catch (e) {
+      print('订阅裁剪任务失败: $e');
+      controller.addError(e);
+    }
+
+    // 立即获取一次当前状态
+    _getCropTask(taskId).then((task) {
+      if (task != null) {
+        controller.add(task);
+      }
+    });
+
+    return controller.stream;
+  }
+
+  /// 获取裁剪任务状态
+  Future<Map<String, dynamic>?> _getCropTask(String taskId) async {
+    try {
+      final document = await _databases.getDocument(
+        databaseId: ApiConfig.databaseId,
+        collectionId: 'question_cropping_tasks',
+        documentId: taskId,
+      );
+
+      return {
+        'taskId': document.$id,
+        'status': document.data['status'] as String? ?? 'pending',
+        'totalCount': document.data['totalCount'] as int? ?? 0,
+        'completedCount': document.data['completedCount'] as int? ?? 0,
+        'croppedImageIds': (document.data['croppedImageIds'] as List<dynamic>?)?.cast<String>() ?? [],
+        'error': document.data['error'] as String?,
+        'createdAt': document.$createdAt,
+        'updatedAt': document.$updatedAt,
+      };
+    } catch (e) {
+      print('获取裁剪任务失败: $e');
+      return null;
+    }
+  }
+
+  /// 批量裁剪多个题目（异步处理）
   /// [imageFileId] 原图文件ID
   /// [questionNumbers] 题号列表
-  /// 返回裁剪后的图片ID列表（顺序与输入一致）
-  Future<List<String>> cropMultipleQuestions(
+  /// 返回任务ID（单个任务包含所有题目）
+  Future<String> createCropTasks(
     String imageFileId,
     List<String> questionNumbers,
   ) async {
     try {
-      // 并行调用裁剪function
-      final futures = questionNumbers.map((q) => 
-        cropQuestion(imageFileId, q)
-      ).toList();
-      
-      return await Future.wait(futures);
+      // 创建一个包含所有题目的任务
+      return await createCropTask(imageFileId, questionNumbers);
     } catch (e) {
-      print('批量裁剪失败: $e');
+      print('创建裁剪任务失败: $e');
       rethrow;
     }
   }

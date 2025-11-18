@@ -756,24 +756,35 @@ class _PracticeScreenState extends State<PracticeScreen> {
                                   : null;
                               
                               if (question != null && question.content.isNotEmpty) {
-                                return MathMarkdownText(
-                                  text: question.content,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary,
-                                    height: 1.2,
+                                return Container(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 20,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  child: MathMarkdownText(
+                                    text: question.content,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary,
+                                      height: 3,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 );
                               } else {
-                                return const Text(
-                                  '错题记录',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary,
+                                return Container(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 20,
+                                  ),
+                                  child: const Text(
+                                    '错题记录',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary,
+                                      height: 1.5,
+                                    ),
                                   ),
                                 );
                               }
