@@ -27,7 +27,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> 
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final StatsService _statsService = StatsService();
   final DailyTaskService _dailyTaskService = DailyTaskService();
   
@@ -407,17 +407,21 @@ class _HomeScreenState extends State<HomeScreen>
         ? weeklyDataRaw.cast<Map<String, dynamic>>()
         : <Map<String, dynamic>>[];
 
-    return CupertinoPageScaffold(
-      backgroundColor: const Color(0x00000000), // 透明背景
-      child: CustomScrollView(
-        controller: _scrollController,
-        // 滚动性能优化
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        // 启用缓存扩展，减少重建
-        cacheExtent: 500,
-        slivers: [
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: AppColors.backgroundGradient,
+      ),
+      child: CupertinoPageScaffold(
+        backgroundColor: const Color(0x00000000), // 透明，显示下层渐变
+        child: CustomScrollView(
+          controller: _scrollController,
+          // 滚动性能优化
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          // 启用缓存扩展，减少重建
+          cacheExtent: 500,
+          slivers: [
           // 主内容
           SliverToBoxAdapter(
             child: SafeArea(
@@ -473,7 +477,8 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -502,16 +507,44 @@ class _HomeScreenState extends State<HomeScreen>
   
   // 鼓励语列表（静态常量避免重复创建）
   static const _encouragements = [
-    '今天也要加油哦！',
-    '每一次努力都不会白费',
-    '坚持就是胜利',
-    '你已经很棒了！',
-    '继续保持，越来越好',
+    '冲鸭！今天也要元气满满',
+    '每一道题都是在变强',
+    '你超棒的，继续保持',
+    '学习使我快乐！',
+    '又进步了一点点呢',
+    '做自己的学霸',
+    '慢慢来，比较快',
+    '今天的我比昨天更强',
+    '热爱可抵岁月漫长',
+    '今天也要加油呀～',
+    '小步快跑，稳步前进',
+    '你已经很棒了',
+    '学习路上不孤单',
+    '每天进步一点点',
     '相信自己，你可以的',
-    '积少成多，日拱一卒',
-    '今天的你比昨天更进步',
+    '累了就休息，不累就继续',
+    '学习是件很酷的事',
+    '今天的努力，明天的收获',
+    '别着急，慢慢来',
+    '你已经走在正确的路上',
+    '学习就像打怪升级',
+    '每一份努力都算数',
+    '保持节奏，享受过程',
+    '今天的你比昨天更优秀',
+    '学习是给自己的礼物',
+    '不慌不忙，稳步向前',
+    '你已经做得很好了',
+    '学习让我更自信',
+    '每天都是新的开始',
+    '坚持就是胜利',
+    '你比想象中更强大',
+    '学习让我快乐',
+    '今天的努力不会白费',
+    '一步一步，脚踏实地',
+    '你已经很棒了，继续加油',
+    '学习是场马拉松',
     '保持热爱，奔赴山海',
-    '小步快跑，持续精进',
+    '今天的你闪闪发光',
   ];
 
   String _getRandomEncouragement() {
@@ -534,13 +567,14 @@ class _HomeScreenState extends State<HomeScreen>
             '${greetingInfo.greeting}，$userName ${greetingInfo.emoji}',
             style: const TextStyle(
               fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -1.0,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2C2C2E),
+              letterSpacing: -0.5,
               height: 1.1,
+              fontFamily: 'PingFang SC',
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           FadeTransition(
             opacity: _encouragementAnimation,
             child: SlideTransition(
@@ -548,25 +582,26 @@ class _HomeScreenState extends State<HomeScreen>
               child: Row(
                 children: [
                   Container(
-                    width: 3,
-                    height: 20,
+                    width: 4,
+                    height: 26,
                     decoration: BoxDecoration(
                       gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(1.5),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       continuousDays > 0 
                         ? '已连续学习 $continuousDays 天，${_getRandomEncouragement()}'
                         : _getRandomEncouragement(),
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 19,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textTertiary,
+                        color: AppColors.textSecondary,
                         height: 1.4,
-                        letterSpacing: -0.2,
+                        letterSpacing: 0.2,
+                        fontFamily: 'PingFang SC',
                       ),
                     ),
                   ),

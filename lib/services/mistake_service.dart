@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
@@ -12,6 +13,7 @@ class MistakeService {
   late Databases _databases;
   late Storage _storage;
   late Realtime _realtime;
+  late Functions _functions;
 
   // Caches
   final Map<String, MistakeRecord> _mistakeRecordCache = {};
@@ -91,6 +93,7 @@ class MistakeService {
     _databases = Databases(_client);
     _storage = Storage(_client);
     _realtime = Realtime(_client);
+    _functions = Functions(_client);
   }
 
   /// 获取用户的所有错题记录
@@ -849,6 +852,86 @@ class MistakeService {
     }
     
     return knowledgePoints;
+  }
+
+  /// 调用题目检测function
+  /// [imageFileId] 图片文件ID
+  /// 返回检测到的题目列表
+  Future<List<String>> detectQuestions(String imageFileId) async {
+    try {
+      final requestBody = {
+        'imageFileId': imageFileId,
+      };
+
+      final execution = await _functions.createExecution(
+        functionId: 'question-detector',
+        body: jsonEncode(requestBody),
+      );
+
+      final response = jsonDecode(execution.responseBody);
+
+      if (response['success'] != true) {
+        throw Exception(response['message'] ?? '题目检测失败');
+      }
+
+      final data = response['data'] as Map<String, dynamic>;
+      final questions = data['questions'] as List<dynamic>;
+      return questions.map((q) => q.toString()).toList();
+    } catch (e) {
+      print('题目检测失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 调用题目裁剪function
+  /// [imageFileId] 原图文件ID
+  /// [questionNumber] 题号，如"第一题"、"第7题"
+  /// 返回裁剪后的图片ID
+  Future<String> cropQuestion(String imageFileId, String questionNumber) async {
+    try {
+      final requestBody = {
+        'imageFileId': imageFileId,
+        'questionNumber': questionNumber,
+      };
+
+      final execution = await _functions.createExecution(
+        functionId: 'question-cropper',
+        body: jsonEncode(requestBody),
+      );
+
+      final response = jsonDecode(execution.responseBody);
+
+      if (response['success'] != true) {
+        throw Exception(response['message'] ?? '题目裁剪失败');
+      }
+
+      final data = response['data'] as Map<String, dynamic>;
+      return data['croppedImageId'] as String;
+    } catch (e) {
+      print('题目裁剪失败 ($questionNumber): $e');
+      rethrow;
+    }
+  }
+
+  /// 批量裁剪多个题目
+  /// [imageFileId] 原图文件ID
+  /// [questionNumbers] 题号列表
+  /// 返回裁剪后的图片ID列表（顺序与输入一致）
+  Future<List<String>> cropMultipleQuestions(
+    String imageFileId,
+    List<String> questionNumbers,
+  ) async {
+    try {
+      // 并行调用裁剪function
+      final futures = questionNumbers.map((q) => 
+        cropQuestion(imageFileId, q)
+      ).toList();
+      
+      return await Future.wait(futures);
+    } catch (e) {
+      print('批量裁剪失败: $e');
+      rethrow;
+    }
   }
 }
 

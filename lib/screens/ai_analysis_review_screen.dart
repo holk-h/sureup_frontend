@@ -1084,7 +1084,7 @@ class _AIAnalysisReviewScreenState extends State<AIAnalysisReviewScreen>
                           CupertinoActivityIndicator(radius: 14),
                           SizedBox(height: 12),
                           Text(
-                            'AI 正在分析中...',
+                            'AI 正在分析中...大约需要30秒',
                             style: TextStyle(
                               fontSize: 14,
                               color: AppColors.textSecondary,

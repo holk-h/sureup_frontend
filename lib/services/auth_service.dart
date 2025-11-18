@@ -323,7 +323,7 @@ class AuthService {
         ...document.data,
       });
       
-      // 同时保存到本地
+      // 同时保存到本地（包含订阅信息）
       await _localStorage.saveUserInfo(userId, {
         'id': document.$id,
         'name': _currentProfile!.name,
@@ -332,6 +332,8 @@ class AuthService {
         'email': _currentProfile!.email,
         'grade': _currentProfile!.grade,
         'focusSubjects': _currentProfile!.focusSubjects,
+        'subscriptionStatus': _currentProfile!.subscriptionStatus,
+        'subscriptionExpiryDate': _currentProfile!.subscriptionExpiryDate?.toIso8601String(),
         'createdAt': _currentProfile!.createdAt.toIso8601String(),
       });
       
@@ -486,7 +488,7 @@ class AuthService {
         ...document.data,
       });
       
-      // 更新本地用户信息
+      // 更新本地用户信息（包含订阅信息）
       await _localStorage.saveUserInfo(_userId!, {
         'id': document.$id,
         'name': _currentProfile!.name,
@@ -495,6 +497,8 @@ class AuthService {
         'email': _currentProfile!.email,
         'grade': _currentProfile!.grade,
         'focusSubjects': _currentProfile!.focusSubjects,
+        'subscriptionStatus': _currentProfile!.subscriptionStatus,
+        'subscriptionExpiryDate': _currentProfile!.subscriptionExpiryDate?.toIso8601String(),
         'createdAt': _currentProfile!.createdAt.toIso8601String(),
       });
     } catch (e) {
@@ -651,6 +655,60 @@ class AuthService {
       await _localStorage.clearAll();
       print('✅ 已清除所有本地数据');
     } catch (e) {
+      throw _handleAuthError(e);
+    }
+  }
+
+  /// 删除账户
+  /// 
+  /// 删除用户的所有数据，包括：
+  /// - 用户档案
+  /// - 错题记录
+  /// - 知识点
+  /// - 订阅记录
+  /// - 练习会话
+  /// - Appwrite 账户
+  /// 
+  /// 注意：此操作不可逆！
+  Future<void> deleteAccount() async {
+    try {
+      if (_userId == null) {
+        throw Exception('用户未登录');
+      }
+      
+      final userId = _userId!;
+      
+      print('开始删除账户，用户 ID: $userId'); // 调试
+      
+      // 构造请求体
+      final requestBody = {
+        'userId': userId,
+      };
+      
+      // 调用删除账户的云函数
+      final execution = await _functions.createExecution(
+        functionId: 'account-delete',
+        body: jsonEncode(requestBody),
+      );
+      
+      // 解析响应
+      final response = jsonDecode(execution.responseBody);
+      
+      if (response['success'] != true) {
+        throw Exception(response['error'] ?? '删除账户失败');
+      }
+      
+      print('账户删除成功'); // 调试
+      
+      // 清除本地数据
+      _userId = null;
+      _userPhone = null;
+      _currentProfile = null;
+      await _localStorage.clearAll();
+      
+      print('✅ 账户删除完成，本地数据已清除');
+    } catch (e) {
+      print('删除账户失败: $e'); // 调试
       throw _handleAuthError(e);
     }
   }

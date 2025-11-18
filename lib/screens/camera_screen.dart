@@ -10,6 +10,7 @@ import '../models/photo_question.dart';
 import 'photo_detail_screen.dart';
 import 'mistake_analysis_progress_screen.dart';
 import 'multi_photo_mistake_screen.dart';
+import 'single_image_multi_questions_screen.dart';
 
 /// 错题照片预览和管理页面
 /// 支持查看已拍摄照片、继续拍摄、从相册选择、提交照片
@@ -148,6 +149,17 @@ class _CameraScreenState extends State<CameraScreen> {
       });
       HapticFeedback.mediumImpact();
     }
+  }
+
+  // 单图识别多题
+  Future<void> _singleImageMultiQuestions() async {
+    HapticFeedback.mediumImpact();
+
+    await Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => const SingleImageMultiQuestionsScreen(),
+      ),
+    );
   }
 
   // 裁剪图片
@@ -818,8 +830,6 @@ class _CameraScreenState extends State<CameraScreen> {
       padding: const EdgeInsets.all(AppConstants.spacingL),
       child: Column(
         children: [
-          const SizedBox(height: 40),
-
           // 功能说明卡片 - 更现代的设计
           Container(
             margin: const EdgeInsets.only(bottom: 32),
@@ -927,12 +937,24 @@ class _CameraScreenState extends State<CameraScreen> {
                 
                 const SizedBox(height: 20),
                 
+                // 拍摄模式说明
+                _buildGuideItem(
+                  '拍摄模式',
+                  CupertinoIcons.camera_fill,
+                  [
+                    '一页多题：拍摄整页试卷，自动识别并裁剪多个题目',
+                    '一题多图：连续拍摄多张照片，组合为一道题（跨页题目）',
+                    '普通拍照：单张照片一道题',
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
                 // 使用提示
                 _buildGuideItem(
                   '使用提示',
                   CupertinoIcons.lightbulb_fill,
                   [
-                    '支持单图题和多图题',
                     '确保照片清晰、完整',
                     '可以随时添加或删除题目',
                   ],
@@ -940,68 +962,6 @@ class _CameraScreenState extends State<CameraScreen> {
               ],
             ),
           ),
-
-          // 当前状态卡片 - 更精美的设计
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFF472B6).withOpacity(0.1),
-                  const Color(0xFFC084FC).withOpacity(0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFFF472B6).withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF472B6).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.camera_fill,
-                        color: Color(0xFFF472B6),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '准备开始',
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFF472B6),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '点击下方"拍照"按钮开始拍摄第一道错题',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 40),
         ],
       ),
     );
@@ -1074,7 +1034,11 @@ class _CameraScreenState extends State<CameraScreen> {
       padding: const EdgeInsets.all(AppConstants.spacingM),
       child: SafeArea(
         top: false,
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 第一行：相册、识图、多图
+            Row(
           children: [
             // 相册按钮 - 只显示图标
             CupertinoButton(
@@ -1091,27 +1055,31 @@ class _CameraScreenState extends State<CameraScreen> {
 
             const SizedBox(width: 12),
 
-            // 多图拍题按钮
+                // 识图和多图按钮 - 两列布局
+                Expanded(
+                  child: Row(
+                    children: [
+                      // 一页多题按钮（单图识别多题）
             Expanded(
               child: CupertinoButton(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                color: const Color(0xFFC7D2FE),
+                          color: AppColors.accentLight.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(16),
-                onPressed: _multiPhotoMistake,
+                          onPressed: _singleImageMultiQuestions,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      CupertinoIcons.photo_on_rectangle,
-                      color: AppColors.accentDark,
-                      size: 24,
+                                CupertinoIcons.square_grid_2x2,
+                                color: AppColors.accent,
+                                size: 20,
                     ),
-                    const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                     Text(
-                      '多图',
+                                '一页多题',
                       style: TextStyle(
-                        color: AppColors.accentDark,
-                        fontSize: 16,
+                                  color: AppColors.accent,
+                                  fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1120,34 +1088,50 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
             ),
 
-            const SizedBox(width: 12),
+                      const SizedBox(width: 8),
 
-            // 拍照按钮 - 粉紫渐变
+                      // 一题多图按钮（多图拍题）
             Expanded(
-              flex: 2,
-              child: Container(
-                decoration: BoxDecoration(
+                        child: CupertinoButton(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          color: AppColors.accentLight.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF472B6), Color(0xFFC084FC)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFF472B6).withOpacity(0.35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFFC084FC).withOpacity(0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                          onPressed: _multiPhotoMistake,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                CupertinoIcons.photo_on_rectangle,
+                                color: AppColors.accent,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '一题多图',
+                                style: TextStyle(
+                                  color: AppColors.accent,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
                     ),
                   ],
                 ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // 第二行：拍照按钮 - 全宽
+            SizedBox(
+              width: double.infinity,
                 child: CupertinoButton(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                color: const Color(0xFFC084FC), // 粉紫色纯色
                   borderRadius: BorderRadius.circular(16),
                   onPressed: _takePicture,
                   child: Row(
@@ -1161,14 +1145,13 @@ class _CameraScreenState extends State<CameraScreen> {
                       const SizedBox(width: 8),
                       Text(
                         _hasPhotos ? '继续拍照' : '拍照',
-                        style: TextStyle(
+                      style: const TextStyle(
                           color: CupertinoColors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
-                  ),
                 ),
               ),
             ),

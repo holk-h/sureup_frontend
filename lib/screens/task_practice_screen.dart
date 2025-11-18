@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Colors, LinearProgressIndicator, Material, InkWell, BoxDecoration, BorderRadius, MaterialPageRoute;
+import 'package:flutter/services.dart';
 import '../models/daily_task.dart';
 import '../models/question.dart';
 import '../models/review_state.dart';
@@ -1459,148 +1460,236 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     }
   }
 
-  /// 显示选择题答案选择器
+  /// 显示选择题答案选择器（支持多选）
   void _showChoiceAnswerDialog(Question question) {
+    // 解析已有答案（支持 "A,B,C" 格式）
+    final Set<String> initialSelected = {};
+    if (question.answer != null && question.answer!.isNotEmpty) {
+      final answers = question.answer!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      initialSelected.addAll(answers);
+    }
+
+    // 使用外部变量保持选中状态
+    final selectedOptions = Set<String>.from(initialSelected);
+
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: const BoxDecoration(
-          color: CupertinoColors.systemBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-          child: Column(
-          children: [
-            // 头部
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemBackground,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppColors.divider,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '选择答案',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '请选择正确答案选项',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => Navigator.pop(context),
-                    child: const Icon(
-                      CupertinoIcons.xmark_circle_fill,
-                      color: AppColors.textTertiary,
-                      size: 28,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 选项列表
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-            children: question.options!.asMap().entries.map((entry) {
-              final index = entry.key;
-              final option = entry.value;
-              // 提取选项的真实标识符（如果选项以A.、B.等开头）
-              final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
-              final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
-              final optionContent = optionMatch?.group(2) ?? option;
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _updateQuestionAnswer(question, optionLabel, null);
-                },
-                child: Container(
-                  width: double.infinity,
-                        padding: const EdgeInsets.all(16),
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: const BoxDecoration(
+              color: CupertinoColors.systemBackground,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // 头部
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.divider,
-                            width: 1,
-                          ),
-                          boxShadow: AppColors.shadowSoft,
+                    color: CupertinoColors.systemBackground,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AppColors.divider,
+                        width: 0.5,
+                      ),
+                    ),
                   ),
                   child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  width: 1.5,
-                                ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '选择答案',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              selectedOptions.isEmpty
+                                  ? '可多选，请选择正确答案选项'
+                                  : '已选择 ${selectedOptions.length} 项',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Center(
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop(context),
+                        child: const Icon(
+                          CupertinoIcons.xmark_circle_fill,
+                          color: AppColors.textTertiary,
+                          size: 28,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 选项列表
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: question.options!.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final option = entry.value;
+                      // 提取选项的真实标识符（如果选项以A.、B.等开头）
+                      final optionMatch = RegExp(r'^([A-Z])[.、]\s*(.*)').firstMatch(option);
+                      final optionLabel = optionMatch?.group(1) ?? String.fromCharCode(65 + index);
+                      final optionContent = optionMatch?.group(2) ?? option;
+                      final isSelected = selectedOptions.contains(optionLabel);
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              if (isSelected) {
+                                selectedOptions.remove(optionLabel);
+                              } else {
+                                selectedOptions.add(optionLabel);
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primary.withOpacity(0.1)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.divider,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: AppColors.shadowSoft,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 选中状态指示器
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.primary.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.primary.withOpacity(0.3),
+                                      width: isSelected ? 0 : 1.5,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: isSelected
+                                        ? const Icon(
+                                            CupertinoIcons.checkmark,
+                                            color: Colors.white,
+                                            size: 18,
+                                          )
+                                        : Text(
+                                            optionLabel,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : AppColors.primary,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: MathMarkdownText(
+                                      text: optionContent,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : AppColors.textPrimary,
+                                        height: 1.4,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                // 底部操作按钮
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemBackground,
+                    border: Border(
+                      top: BorderSide(
+                        color: AppColors.divider,
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CupertinoButton(
+                          color: AppColors.primary,
+                          onPressed: selectedOptions.isEmpty
+                              ? null
+                              : () {
+                                  Navigator.pop(context);
+                                  final answer = selectedOptions.toList()
+                                    ..sort(); // 按字母顺序排序
+                                  _updateQuestionAnswer(
+                                    question,
+                                    answer.join(','),
+                                    null,
+                                  );
+                                },
                           child: Text(
-                            optionLabel,
+                            selectedOptions.isEmpty
+                                ? '请至少选择一个选项'
+                                : '保存 (${selectedOptions.length}项)',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: MathMarkdownText(
-                                  text: optionContent,
-                          style: const TextStyle(
-                                    fontSize: 15,
-                            color: AppColors.textPrimary,
-                                    height: 1.4,
-                                  ),
-                          ),
-                        ),
-                      ),
                     ],
-                        ),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-          ),
-        ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

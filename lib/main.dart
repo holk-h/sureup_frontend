@@ -46,6 +46,21 @@ class SureUpApp extends StatelessWidget {
             final service = previousService ?? SubscriptionService(AppwriteService());
             // 设置 getUserId 回调，从 AuthProvider 获取用户 ID
             service.setGetUserId(() => authProvider.userProfile?.id);
+            
+            // 🚀 当用户登录或档案更新时，同步订阅信息
+            if (authProvider.isLoggedIn && authProvider.userProfile != null) {
+              // 异步同步订阅状态，不阻塞 UI
+              Future.microtask(() async {
+                try {
+                  await service.loadSubscriptionStatus();
+                  print('✅ 订阅信息已同步');
+                } catch (e) {
+                  print('⚠️ 同步订阅信息失败: $e');
+                  // 静默失败，不影响用户体验
+                }
+              });
+            }
+            
             return service;
           },
         ),

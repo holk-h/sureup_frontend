@@ -400,9 +400,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             runSpacing: 12,
             children: _grades.map((grade) {
               final isSelected = _selectedGrade == grade['value'];
-              return CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () {
+              return GestureDetector(
+                onTap: () {
                   setState(() {
                     _selectedGrade = grade['value'];
                     _errorMessage = null;
@@ -481,72 +480,80 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           
           const SizedBox(height: 16),
           
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _subjects.map((subject) {
-              final isSelected = _selectedSubjects.contains(subject['id']);
-              return CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedSubjects.remove(subject['id']);
-                    } else {
-                      _selectedSubjects.add(subject['id']);
-                    }
-                    _errorMessage = null;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? (subject['color'] as Color).withOpacity(0.15)
-                        : AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? (subject['color'] as Color)
-                          : AppColors.divider,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        subject['icon'],
-                        style: TextStyle(fontSize: 20),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        subject['name'],
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = 4;
+              final spacing = 12.0;
+              final itemWidth = (constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+              
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                alignment: WrapAlignment.start,
+                children: _subjects.map((subject) {
+                  final isSelected = _selectedSubjects.contains(subject['id']);
+                  return SizedBox(
+                    width: itemWidth,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedSubjects.remove(subject['id']);
+                          } else {
+                            _selectedSubjects.add(subject['id']);
+                          }
+                          _errorMessage = null;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? (subject['color'] as Color)
-                              : AppColors.textPrimary,
+                              ? (subject['color'] as Color).withOpacity(0.15)
+                              : AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? (subject['color'] as Color)
+                                : AppColors.divider,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              subject['icon'],
+                              style: TextStyle(fontSize: 20),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                subject['name'],
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? (subject['color'] as Color)
+                                      : AppColors.textPrimary,
+                                ),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 6),
-                        Icon(
-                          CupertinoIcons.checkmark_circle_fill,
-                          size: 18,
-                          color: subject['color'] as Color,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                }).toList(),
               );
-            }).toList(),
-          ),
+            },
+          )
         ],
       ),
     );

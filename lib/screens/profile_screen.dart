@@ -8,6 +8,7 @@ import '../services/subscription_service.dart';
 import '../widgets/common/developer_message_dialog.dart';
 import 'auth/login_screen.dart';
 import 'settings_screen.dart';
+import 'main_screen.dart';
 
 /// 我的页 - 个人信息
 class ProfileScreen extends StatefulWidget {
@@ -1222,6 +1223,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: AppColors.error,
           onTap: () => _handleLogout(context),
         ),
+        const SizedBox(height: 12),
+        _buildActionButton(
+          icon: CupertinoIcons.delete,
+          title: '删除账户',
+          color: AppColors.error,
+          onTap: () => _handleDeleteAccount(context),
+        ),
       ],
     );
   }
@@ -1338,6 +1346,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  // 处理删除账户
+  void _handleDeleteAccount(BuildContext context) async {
+    // 显示第一次确认对话框
+    final firstConfirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('删除账户'),
+        content: const Text(
+          '删除账户将永久删除您的所有数据，包括：\n'
+          '• 用户档案\n'
+          '• 错题记录\n'
+          '• 学习数据\n'
+          '• 订阅信息\n\n'
+          '此操作不可恢复，确定要继续吗？',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('继续'),
+          ),
+        ],
+      ),
+    );
+    
+    if (firstConfirmed != true || !mounted) {
+      return;
+    }
+    
+    // 显示二次确认对话框
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('最后确认'),
+        content: const Text(
+          '您真的要删除账户吗？\n'
+          '所有数据将被永久删除，无法恢复！',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    
+    // 显示加载提示
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const CupertinoAlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoActivityIndicator(),
+            SizedBox(height: 16),
+            Text('正在删除账户...'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final authProvider = Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      );
+      
+      print('开始调用删除账户...'); // 调试
+      
+      // 调用删除账户（会自动清除登录状态）
+      await authProvider.deleteAccount();
+      
+      print('账户删除成功，准备跳转...'); // 调试
+      
+      if (!mounted) return;
+      
+      // 关闭加载对话框
+      Navigator.of(context).pop();
+      
+      // 直接跳转到主页，清除所有路由
+      // 主页会根据 AuthProvider 的状态显示未登录界面
+      Navigator.of(context).pushAndRemoveUntil(
+        CupertinoPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+        (route) => false,
+      );
+      
+      print('已跳转到主页'); // 调试
+    } catch (e) {
+      print('删除账户失败: $e'); // 调试
+      
+      if (!mounted) return;
+      
+      // 关闭加载对话框
+      Navigator.of(context).pop();
+      
+      // 显示错误提示
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('删除失败'),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
 

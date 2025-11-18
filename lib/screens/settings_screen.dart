@@ -4,6 +4,8 @@ import '../config/colors.dart';
 import '../config/constants.dart';
 import '../providers/auth_provider.dart';
 import '../services/notification_service.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -166,7 +168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSettingItem(
                 icon: CupertinoIcons.info_circle,
                 title: '关于我们',
-                subtitle: '了解更多关于 SureUp',
+                subtitle: '了解更多关于 "稳了!"APP',
                 color: AppColors.textSecondary,
                 onTap: () {
                   _showAboutDialog(context);
@@ -183,7 +185,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: '查看隐私政策',
                 color: AppColors.textSecondary,
                 onTap: () {
-                  // TODO: 显示隐私政策
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => const PrivacyPolicyScreen(),
+                    ),
+                  );
                 },
               ),
               Container(
@@ -197,7 +203,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: '查看用户协议',
                 color: AppColors.textSecondary,
                 onTap: () {
-                  // TODO: 显示用户协议
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => const TermsOfServiceScreen(),
+                    ),
+                  );
                 },
               ),
             ]),
@@ -207,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // 版本信息
             Center(
               child: Text(
-                'SureUp 版本 1.0.0',
+                '"稳了!"APP 版本 1.0.0',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.textTertiary,
@@ -748,26 +758,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('关于 SureUp'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: 16),
-            Text(
-              'SureUp 是一款智能错题管理应用',
-              style: TextStyle(fontSize: 14),
-            ),
-            SizedBox(height: 8),
-            Text(
-              '帮助学生记录、分析和复习错题',
-              style: TextStyle(fontSize: 14),
-            ),
-            SizedBox(height: 8),
-            Text(
-              '让学习更高效！',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-          ],
+        title: const Text('关于 "稳了!"APP'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              const Text(
+                '"稳了!"APP 是一款智能错题管理应用',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '核心功能',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildAboutItem('• 智能错题记录与管理'),
+              _buildAboutItem('• AI驱动的学习分析'),
+              _buildAboutItem('• 个性化每日任务生成'),
+              _buildAboutItem('• 学习进度追踪'),
+              _buildAboutItem('• 智能复习提醒'),
+              const SizedBox(height: 12),
+              const Text(
+                '版本信息',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '版本：1.0.0',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '联系我们',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '邮箱：support@delvetech.cn',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '让学习更高效！',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           CupertinoDialogAction(
@@ -775,6 +830,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildAboutItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 13),
       ),
     );
   }

@@ -95,6 +95,18 @@ class AuthProvider with ChangeNotifier {
     }
   }
   
+  /// 删除账户
+  Future<void> deleteAccount() async {
+    try {
+      await _authService.deleteAccount();
+      _isLoggedIn = false;
+      _userProfile = null;
+      notifyListeners();
+    } catch (e) {
+      throw Exception('删除账户失败：$e');
+    }
+  }
+  
   /// 更新用户档案
   Future<void> updateProfile({
     String? name,

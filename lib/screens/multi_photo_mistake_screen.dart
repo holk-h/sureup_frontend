@@ -7,8 +7,8 @@ import '../config/colors.dart';
 import '../config/constants.dart';
 import '../config/text_styles.dart';
 
-/// 多图拍题界面
-/// 支持连续拍摄多张照片，组合为一道题
+/// 一题多图界面
+/// 支持连续拍摄多张照片，组合为一道题（适用于跨页题目）
 class MultiPhotoMistakeScreen extends StatefulWidget {
   const MultiPhotoMistakeScreen({super.key});
 
@@ -381,7 +381,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
 
           // 标题
           Text(
-            '多图拍题',
+            '一题多图',
             style: AppTextStyles.smallTitle.copyWith(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -457,7 +457,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '多图拍题',
+                            '一题多图',
                             style: AppTextStyles.smallTitle.copyWith(
                               color: const Color(0xFF8B5CF6),
                               fontWeight: FontWeight.bold,
@@ -466,7 +466,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '将多页题目整合为一道题',
+                            '连续拍摄多张照片，组合为一道题',
                             style: AppTextStyles.body.copyWith(
                               color: AppColors.textSecondary,
                               fontSize: 14,
@@ -522,68 +522,6 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
               ],
             ),
           ),
-
-          // 当前状态卡片 - 更精美的设计
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF8B5CF6).withOpacity(0.1),
-                  const Color(0xFF6366F1).withOpacity(0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF8B5CF6).withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.camera_fill,
-                        color: Color(0xFF8B5CF6),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '准备开始',
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '点击下方"拍摄"按钮开始拍摄第一张照片',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 40),
         ],
       ),
     );
@@ -950,7 +888,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
             Expanded(
               child: CupertinoButton(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                color: const Color(0xFFC084FC), // 粉紫色纯色
                 borderRadius: BorderRadius.circular(16),
                 onPressed: _takePicture,
                 child: Row(
@@ -958,14 +896,14 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
                   children: [
                     Icon(
                       hasPhotos ? CupertinoIcons.add_circled_solid : CupertinoIcons.camera_fill,
-                      color: const Color(0xFF8B5CF6),
+                      color: CupertinoColors.white,
                       size: 24,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       hasPhotos ? '继续拍摄' : '拍摄',
-                      style: TextStyle(
-                        color: const Color(0xFF8B5CF6),
+                      style: const TextStyle(
+                        color: CupertinoColors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),

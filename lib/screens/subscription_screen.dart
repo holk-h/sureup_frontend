@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/subscription_service.dart';
 import '../config/colors.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// 订阅管理页面
 class SubscriptionScreen extends StatefulWidget {
@@ -425,10 +426,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题
-          const Text(
-            '月度会员',
-            style: TextStyle(
+          // 订阅标题（Apple 要求：自动续订订阅的标题）
+          Text(
+            product.title.isNotEmpty ? product.title : '月度会员',
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -436,7 +437,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // 价格行
+          // 价格行（Apple 要求：订阅价格和每单位价格）
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -465,6 +466,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          // 订阅时长（Apple 要求：订阅时长）
+          Text(
+            '订阅时长：每月',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
           // 说明文字
           Text(
             '每月自动续订，可随时取消',
@@ -566,6 +578,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           _buildNoticeItem('取消订阅后，会员权益将持续到当前周期结束'),
           const SizedBox(height: 10),
           _buildNoticeItem('换设备请使用"恢复购买"功能'),
+          const SizedBox(height: 20),
+          // Apple 要求：指向隐私政策和使用条款的链接
+          Container(
+            height: 1,
+            color: AppColors.divider.withOpacity(0.2),
+          ),
+          const SizedBox(height: 16),
+          _buildLegalLinks(),
         ],
       ),
     );
@@ -596,6 +616,71 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ),
       ],
     );
+  }
+
+  /// 法律链接（Apple 要求：隐私政策和使用条款）
+  Widget _buildLegalLinks() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '法律信息',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildLegalLink(
+          '服务协议（Terms of Use / EULA）',
+          'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+        ),
+        const SizedBox(height: 8),
+        _buildLegalLink(
+          '隐私政策（Privacy Policy）',
+          'https://www.freeprivacypolicy.com/live/a1417e5a-cc8e-41b0-9726-7b61b056fe5b',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegalLink(String text, String url) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      alignment: Alignment.centerLeft,
+      onPressed: () => _launchURL(url),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primary,
+                decoration: TextDecoration.underline,
+                height: 1.5,
+              ),
+            ),
+          ),
+          Icon(
+            CupertinoIcons.arrow_right_circle_fill,
+            size: 16,
+            color: AppColors.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 打开 URL
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('无法打开链接: $url');
+    }
   }
 
   /// 购买订阅
