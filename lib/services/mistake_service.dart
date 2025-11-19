@@ -124,6 +124,35 @@ class MistakeService {
     }
   }
 
+  /// 获取带有笔记的错题记录
+  Future<List<MistakeRecord>> getMistakesWithNotes(String userId) async {
+    try {
+      final response = await _databases.listDocuments(
+        databaseId: ApiConfig.databaseId,
+        collectionId: ApiConfig.mistakeRecordsCollectionId,
+        queries: [
+          Query.equal('userId', userId),
+          Query.isNotNull('note'),
+          Query.orderDesc('\$createdAt'),
+          Query.limit(100),
+        ],
+      );
+
+      return response.documents
+          .map((doc) => MistakeRecord.fromJson({
+                'id': doc.$id,
+                'createdAt': doc.$createdAt,
+                'updatedAt': doc.$updatedAt,
+                ...doc.data,
+              }))
+          .where((m) => m.note != null && m.note!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      print('获取带笔记错题失败: $e');
+      return [];
+    }
+  }
+
   /// 获取待复盘的错题（未掌握的）
   Future<List<MistakeRecord>> getUnmasteredMistakes(String userId) async {
     try {
@@ -659,7 +688,7 @@ class MistakeService {
     }
   }
 
-  /// 更新错题记录备注
+  /// 更新错题记录笔记
   Future<void> updateMistakeNote(String recordId, String note) async {
     try {
       await _databases.updateDocument(
@@ -671,7 +700,7 @@ class MistakeService {
       // 更新成功后，使缓存失效
       _mistakeRecordCache.remove(recordId);
     } catch (e) {
-      print('更新备注失败: $e');
+      print('更新笔记失败: $e');
       rethrow;
     }
   }

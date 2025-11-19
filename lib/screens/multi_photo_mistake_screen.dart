@@ -358,7 +358,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
               if (shouldPop && mounted) {
                 Navigator.of(context).pop();
               }
-            },
+            }, minimumSize: Size(44, 44),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -376,7 +376,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
                   ),
                 ),
               ],
-            ), minimumSize: Size(44, 44),
+            ),
           ),
 
           // 标题
@@ -791,7 +791,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
                       ),
                       color: AppColors.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      onPressed: () => _deletePhoto(index),
+                      onPressed: () => _deletePhoto(index), minimumSize: Size(0, 0),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -810,7 +810,7 @@ class _MultiPhotoMistakeScreenState extends State<MultiPhotoMistakeScreen> {
                             ),
                           ),
                         ],
-                      ), minimumSize: Size(0, 0),
+                      ),
                     ),
                   ],
                 ),

@@ -10,7 +10,7 @@ import 'mistake_note_section.dart';
 import 'error_reason_selector.dart';
 
 /// 简化版题目内容卡片
-/// 显示题目内容、选项、添加备注和正确答案，用于 OCR 完成但分析未完成时
+/// 显示题目内容、选项、添加笔记和正确答案，用于 OCR 完成但分析未完成时
 class SimpleQuestionCard extends StatefulWidget {
   final Question question;
   final MistakeRecord mistakeRecord;
@@ -82,17 +82,17 @@ class _SimpleQuestionCardState extends State<SimpleQuestionCard> {
             ),
           ],
 
-          // 添加备注和正确答案区域
+          // 添加笔记和正确答案区域
           const SizedBox(height: AppConstants.spacingM),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 添加备注
+                // 添加笔记
                 Expanded(
                   flex: 50,
                   child: _buildSection(
-                    title: '错题备注',
+                    title: '错题笔记',
                     icon: CupertinoIcons.pencil,
                     iconColor: AppColors.primary,
                     isEditable: true,

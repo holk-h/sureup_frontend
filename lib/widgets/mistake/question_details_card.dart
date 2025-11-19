@@ -279,18 +279,18 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
               widget.question.options!.isNotEmpty)
             const SizedBox(height: AppConstants.spacingM),
 
-          // 答案和备注 (索引 2)
+          // 答案和笔记 (索引 2)
           _buildAnimatedItem(
             animationIndex++,
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 添加备注
+                  // 添加笔记
                   Expanded(
                     flex: 50,
                     child: _buildSection(
-                      title: '错题备注',
+                      title: '错题笔记',
                       icon: CupertinoIcons.pencil,
                       iconColor: AppColors.primary,
                       isEditable: true,

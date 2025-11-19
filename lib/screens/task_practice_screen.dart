@@ -264,7 +264,7 @@ class _TaskPracticeScreenState extends State<TaskPracticeScreen> {
     return CupertinoPageScaffold(
       backgroundColor: AppColors.background,
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: CupertinoColors.systemBackground.withOpacity(0.9),
+        backgroundColor: CupertinoColors.systemBackground.withValues(alpha: 0.9),
         border: null,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,

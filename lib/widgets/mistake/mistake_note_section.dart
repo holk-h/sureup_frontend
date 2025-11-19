@@ -121,7 +121,7 @@ class _MistakeNoteSectionState extends State<MistakeNoteSection> {
         trimmed,
       );
     } catch (e) {
-      print('更新备注失败: $e');
+      print('更新笔记失败: $e');
       if (mounted) {
         setState(() {
           _note = previousNote;
@@ -151,7 +151,7 @@ class _NoteEmptyContent extends StatelessWidget {
           Icon(CupertinoIcons.plus_circle, color: AppColors.primary, size: 18),
           SizedBox(width: 6),
           Text(
-            '点击添加备注',
+            '点击添加笔记',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.primary,
@@ -185,7 +185,7 @@ class _NoteFilledContent extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '点击编辑备注',
+          '点击编辑笔记',
           style: TextStyle(
             fontSize: 12,
             color: AppColors.primary.withValues(alpha: 0.7),

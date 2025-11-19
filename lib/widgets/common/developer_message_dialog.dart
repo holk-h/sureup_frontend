@@ -126,6 +126,7 @@ class _DeveloperMessageDialogState extends State<DeveloperMessageDialog> {
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => Navigator.of(context).pop(),
+                    minimumSize: const Size(0, 0),
                     child: Container(
                       width: 32,
                       height: 32,
@@ -139,7 +140,6 @@ class _DeveloperMessageDialogState extends State<DeveloperMessageDialog> {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    minimumSize: const Size(0, 0),
                   ),
                 ],
               ),

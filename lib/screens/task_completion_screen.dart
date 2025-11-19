@@ -313,7 +313,7 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey.withOpacity(0.1),
+            color: CupertinoColors.systemGrey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -378,7 +378,7 @@ class _TaskCompletionScreenState extends State<TaskCompletionScreen>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: CupertinoColors.systemGrey.withOpacity(0.15),
+                  color: CupertinoColors.systemGrey.withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),

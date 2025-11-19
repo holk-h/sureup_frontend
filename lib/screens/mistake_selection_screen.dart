@@ -269,7 +269,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
                       _variantsPerQuestion--;
                     });
                   }
-                : null,
+                : null, minimumSize: Size(0, 0),
             child: Container(
               width: 36,
               height: 36,
@@ -297,7 +297,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
                     ? AppColors.cardBackground
                     : AppColors.textTertiary,
               ),
-            ), minimumSize: Size(0, 0),
+            ),
           ),
           const SizedBox(width: AppConstants.spacingM),
           // 数量显示
@@ -331,7 +331,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
                       _variantsPerQuestion++;
                     });
                   }
-                : null,
+                : null, minimumSize: Size(0, 0),
             child: Container(
               width: 36,
               height: 36,
@@ -359,7 +359,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
                     ? AppColors.cardBackground
                     : AppColors.textTertiary,
               ),
-            ), minimumSize: Size(0, 0),
+            ),
           ),
           const SizedBox(width: AppConstants.spacingM),
           const Text(
@@ -795,7 +795,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
             ),
             onPressed: _currentPage > 0
                 ? () => _goToPage(_currentPage - 1)
-                : null,
+                : null, minimumSize: Size(0, 0),
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppConstants.spacingM,
@@ -842,7 +842,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
                   ),
                 ],
               ),
-            ), minimumSize: Size(0, 0),
+            ),
           ),
           const SizedBox(width: AppConstants.spacingM),
           // 页码显示
@@ -898,7 +898,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
             ),
             onPressed: _currentPage < _totalPages - 1
                 ? () => _goToPage(_currentPage + 1)
-                : null,
+                : null, minimumSize: Size(0, 0),
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppConstants.spacingM,
@@ -947,7 +947,7 @@ class _MistakeSelectionScreenState extends State<MistakeSelectionScreen> {
                   ),
                 ],
               ),
-            ), minimumSize: Size(0, 0),
+            ),
           ),
         ],
       ),

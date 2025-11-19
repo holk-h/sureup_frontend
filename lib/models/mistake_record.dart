@@ -37,7 +37,7 @@ class MistakeRecord {
   
   // 错题信息
   final String? errorReason; // 错因（可以是预定义的枚举值或自定义文本）
-  final String? note; // 用户备注
+  final String? note; // 用户笔记
   final String? userAnswer; // 用户的错误答案
   final bool isImportant; // 用户标记为重要
   

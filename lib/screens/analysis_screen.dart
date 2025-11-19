@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import 'subject_detail_screen.dart';
 import 'ai_analysis_review_screen.dart';
 import 'auth/login_screen.dart';
+import 'note_aggregation_screen.dart';
 
 /// 分析页 - 错题分析和知识点地图
 class AnalysisScreen extends StatefulWidget {
@@ -199,6 +200,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> with WidgetsBindingObse
                   // AI 每日错题分析卡片
                   _buildDailyAnalysisCard(),
                   
+                  const SizedBox(height: AppConstants.spacingM),
+                  
+                  // 笔记汇总卡片
+                  _buildNoteAggregationCard(),
+                  
                   const SizedBox(height: AppConstants.spacingL),
                   
                   // 学科分类标题
@@ -355,6 +361,119 @@ class _AnalysisScreenState extends State<AnalysisScreen> with WidgetsBindingObse
                 fontSize: 14,
                 color: AppColors.textSecondary,
                 height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 笔记汇总卡片
+  Widget _buildNoteAggregationCard() {
+    return GestureDetector(
+      onTap: () {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (!authProvider.isLoggedIn) {
+          _navigateToLogin();
+          return;
+        }
+        
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (context) => const NoteAggregationScreen(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(AppConstants.spacingL),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withOpacity(0.12),
+              AppColors.primary.withOpacity(0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
+          border: Border.all(
+            color: AppColors.primary.withOpacity(0.25),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                CupertinoIcons.doc_text,
+                color: AppColors.cardBackground,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: AppConstants.spacingM),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '笔记汇总',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    '查看和导出所有错题笔记',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                CupertinoIcons.chevron_right,
+                size: 16,
+                color: AppColors.primary,
               ),
             ),
           ],

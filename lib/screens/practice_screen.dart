@@ -589,7 +589,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                     // 刷新按钮
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: _isRefreshingMistakes ? null : _refreshMistakes,
+                      onPressed: _isRefreshingMistakes ? null : _refreshMistakes, minimumSize: Size(0, 0),
                       child: _isRefreshingMistakes
                           ? const SizedBox(
                               width: 20,
@@ -602,7 +602,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                               CupertinoIcons.refresh,
                               size: 20,
                               color: AppColors.textSecondary,
-                            ), minimumSize: Size(0, 0),
+                            ),
                     ),
                   ],
                 ),

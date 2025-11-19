@@ -644,7 +644,7 @@ class _MistakeDetailPageState extends State<_MistakeDetailPage>
           ),
         ),
 
-        // OCR 完成：显示简化的题目内容（题目、选项、备注、答案）
+        // OCR 完成：显示简化的题目内容（题目、选项、笔记、答案）
         if (widget.mistakeRecord!.analysisStatus == AnalysisStatus.ocrOK && 
             widget.question != null)
           SliverToBoxAdapter(

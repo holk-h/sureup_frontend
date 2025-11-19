@@ -51,4 +51,5 @@ class ApiConfig {
   
   // Functions 配置
   static const String functionAccumulatedAnalyzer = 'ai-accumulated-analyzer';  // 积累错题分析 Function
+  static const String functionAIHelper = 'ai-helper';  // AI 辅助工具 Function
 }

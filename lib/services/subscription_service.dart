@@ -403,10 +403,6 @@ class SubscriptionService extends ChangeNotifier {
         // iOS: 发送收据数据
         final String receiptData =
             purchaseDetails.verificationData.serverVerificationData;
-        if (receiptData == null) {
-          debugPrint('❌ No receipt data');
-          return false;
-        }
         requestBody['receiptData'] = receiptData;
         debugPrint('📄 Receipt data length: ${receiptData.length}');
       } else {
