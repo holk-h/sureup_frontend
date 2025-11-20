@@ -337,6 +337,9 @@ class AuthService {
         'createdAt': _currentProfile!.createdAt.toIso8601String(),
       });
       
+      // 同步通知设置
+      await _syncNotificationSettings();
+      
       return true;
     } catch (e) {
       // 档案不存在
@@ -441,9 +444,57 @@ class AuthService {
       });
       
       print('用户档案创建成功: $_currentProfile'); // 调试
+      
+      // 同步通知设置（使用数据库默认值）
+      await _syncNotificationSettings();
     } catch (e) {
       print('创建用户档案异常: $e'); // 调试
       throw _handleAuthError(e);
+    }
+  }
+  
+  /// 同步通知设置（根据用户档案中的设置）
+  Future<void> _syncNotificationSettings() async {
+    if (_currentProfile == null) return;
+    
+    try {
+      // 同步每日任务提醒
+      if (_currentProfile!.dailyTaskReminderEnabled == true) {
+        try {
+          await _notificationService.scheduleDailyTaskReminder(
+            enabled: true,
+            time: null, // 使用默认时间（晚上8点）
+          );
+          print('✅ 每日任务提醒已同步');
+        } catch (e) {
+          print('⚠️ 设置每日任务提醒失败: $e');
+          // 静默失败，不影响用户体验
+        }
+      }
+      
+      // 同步复习提醒
+      if (_currentProfile!.reviewReminderEnabled == true) {
+        try {
+          // 解析提醒时间，默认晚上8点
+          TimeOfDay? reminderTime;
+          if (_currentProfile!.reviewReminderTime != null) {
+            reminderTime = TimeOfDay.fromString(_currentProfile!.reviewReminderTime);
+          }
+          reminderTime ??= const TimeOfDay(hour: 20, minute: 0);
+          
+          await _notificationService.scheduleReviewReminder(
+            enabled: true,
+            time: reminderTime,
+          );
+          print('✅ 复习提醒已同步');
+        } catch (e) {
+          print('⚠️ 设置复习提醒失败: $e');
+          // 静默失败，不影响用户体验
+        }
+      }
+    } catch (e) {
+      print('⚠️ 同步通知设置失败: $e');
+      // 静默失败，不影响用户体验
     }
   }
 

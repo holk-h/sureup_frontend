@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:appwrite/appwrite.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
@@ -270,6 +271,34 @@ class MistakeService {
     
     print('成功上传 ${fileIds.length}/${filePaths.length} 张图片');
     return fileIds;
+  }
+
+  /// 获取提取的图片内容
+  Future<Uint8List?> getExtractedImage(String fileId) async {
+    try {
+      final result = await _storage.getFileDownload(
+        bucketId: ApiConfig.extractedImagesBucketId,
+        fileId: fileId,
+      );
+      return result;
+    } catch (e) {
+      print('获取提取图片失败 ($fileId): $e');
+      return null;
+    }
+  }
+
+  /// 批量获取提取的图片内容
+  Future<Map<String, Uint8List>> getExtractedImages(List<String> fileIds) async {
+    final images = <String, Uint8List>{};
+    final futures = fileIds.map((id) => getExtractedImage(id)).toList();
+    final results = await Future.wait(futures);
+    
+    for (var i = 0; i < fileIds.length; i++) {
+      if (results[i] != null) {
+        images[fileIds[i]] = results[i]!;
+      }
+    }
+    return images;
   }
 
   /// 创建错题记录（支持多图题）
@@ -1129,4 +1158,3 @@ class MistakeService {
     }
   }
 }
-

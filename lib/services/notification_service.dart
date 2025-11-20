@@ -218,8 +218,8 @@ class NotificationService {
       throw Exception('通知权限未授予');
     }
 
-    // 默认时间：上午 9:00
-    final reminderTime = time ?? const TimeOfDay(hour: 9, minute: 0);
+    // 默认时间：晚上 8:00
+    final reminderTime = time ?? const TimeOfDay(hour: 20, minute: 0);
 
     final now = tz.TZDateTime.now(tz.local);
     var scheduledDate = tz.TZDateTime(

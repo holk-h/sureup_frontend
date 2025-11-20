@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -154,7 +155,7 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
       final fontRegular = await PdfGoogleFonts.notoSansSCRegular();
 
       // 为每个错题预渲染文本为图片
-      final renderedContents = <int, Map<String, Map<String, dynamic>?>>{};
+      final renderedContents = <int, Map<String, dynamic>>{};
       
       // 目标字号 6.5 (原 5.0 * 1.25)，渲染字号 20.0
       const double targetFontSize = 6.5;
@@ -182,6 +183,22 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
             fontSize: renderFontSize,
             maxWidth: renderMaxWidth,
           );
+        }
+
+        // 获取题目配图
+        List<Uint8List> extractedImages = [];
+        if (question?.extractedImages != null && question!.extractedImages!.isNotEmpty) {
+           try {
+             final imagesMap = await MistakeService().getExtractedImages(question.extractedImages!);
+             // 保持顺序
+             for (var id in question.extractedImages!) {
+               if (imagesMap.containsKey(id)) {
+                 extractedImages.add(imagesMap[id]!);
+               }
+             }
+           } catch (e) {
+             debugPrint('Failed to load extracted images: $e');
+           }
         }
         
         // 渲染选项
@@ -217,6 +234,7 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
         
         renderedContents[i] = {
           'content': contentImage,
+          'extractedImages': extractedImages,
           'options': optionsImage,
           'answer': answerImage,
           'note': noteImage,
@@ -309,7 +327,7 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
   pw.Widget _buildMistakeItem(
     int index,
     MistakeRecord mistake,
-    Map<String, Map<String, dynamic>?> rendered,
+    Map<String, dynamic> rendered,
     pw.Font fontBold,
     pw.Font fontRegular,
     double scaleFactor,
@@ -381,14 +399,29 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
             pw.SizedBox(height: 2),
             if (rendered['content'] != null)
               pw.Image(
-                pw.MemoryImage(rendered['content']!['bytes'] as Uint8List),
-                width: (rendered['content']!['width'] as double) * scaleFactor,
+                pw.MemoryImage((rendered['content'] as Map<String, dynamic>)['bytes'] as Uint8List),
+                width: ((rendered['content'] as Map<String, dynamic>)['width'] as double) * scaleFactor,
               )
             else
               pw.Text(
                 question.content,
                 style: pw.TextStyle(fontSize: 6, height: 1.2, font: fontRegular),
               ),
+            
+            // 题目配图
+            if (rendered['extractedImages'] != null && (rendered['extractedImages'] as List).isNotEmpty) ...[
+              pw.SizedBox(height: 4),
+              for (final imageBytes in (rendered['extractedImages'] as List<Uint8List>))
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 4),
+                  child: pw.Image(
+                    pw.MemoryImage(imageBytes),
+                    width: 60, // 限制图片宽度，避免过大
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+            ],
+
             pw.SizedBox(height: 4),
             
             // 选项
@@ -405,8 +438,8 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
               pw.SizedBox(height: 2),
               if (rendered['options'] != null)
                 pw.Image(
-                  pw.MemoryImage(rendered['options']!['bytes'] as Uint8List),
-                  width: (rendered['options']!['width'] as double) * scaleFactor,
+                  pw.MemoryImage((rendered['options'] as Map<String, dynamic>)['bytes'] as Uint8List),
+                  width: ((rendered['options'] as Map<String, dynamic>)['width'] as double) * scaleFactor,
                 )
               else
                 pw.Column(
@@ -438,8 +471,8 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
               pw.SizedBox(height: 2),
               if (rendered['answer'] != null)
                 pw.Image(
-                  pw.MemoryImage(rendered['answer']!['bytes'] as Uint8List),
-                  width: (rendered['answer']!['width'] as double) * scaleFactor,
+                  pw.MemoryImage((rendered['answer'] as Map<String, dynamic>)['bytes'] as Uint8List),
+                  width: ((rendered['answer'] as Map<String, dynamic>)['width'] as double) * scaleFactor,
                 )
               else
                 pw.Text(
@@ -463,8 +496,8 @@ class _NoteAggregationScreenState extends State<NoteAggregationScreen> {
           pw.SizedBox(height: 2),
           if (rendered['note'] != null)
             pw.Image(
-              pw.MemoryImage(rendered['note']!['bytes'] as Uint8List),
-              width: (rendered['note']!['width'] as double) * scaleFactor,
+              pw.MemoryImage((rendered['note'] as Map<String, dynamic>)['bytes'] as Uint8List),
+              width: ((rendered['note'] as Map<String, dynamic>)['width'] as double) * scaleFactor,
             )
           else
             pw.Text(
