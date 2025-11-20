@@ -1,12 +1,14 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import '../../config/colors.dart';
 import '../../config/constants.dart';
 import '../../models/models.dart';
 import '../../services/mistake_service.dart';
 import '../common/math_markdown_text.dart';
+import 'common/answer_widgets.dart';
+import 'common/mistake_section.dart';
+import 'common/question_content_widgets.dart';
 import 'error_reason_selector.dart';
-import 'edit_answer_dialog.dart';
+// import 'edit_answer_dialog.dart';
 import 'mistake_note_section.dart';
 
 /// 题目详情卡片组件
@@ -37,22 +39,66 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
   late AnimationController _staggerController;
   late List<Animation<double>> _itemAnimations;
   late List<Animation<Offset>> _slideAnimations;
-  String? _selectedAnswer;
+  Set<String> _selectedAnswers = {};
+  Set<String> _selectedUserAnswers = {};
 
   @override
   void initState() {
     super.initState();
-    _selectedAnswer = widget.question.answer;
+    _initSelectedAnswers();
+    _initSelectedUserAnswers();
     _setupStaggeredAnimations();
     _startAnimation();
+  }
+
+  void _initSelectedAnswers() {
+    // 优先使用 MistakeRecord 中的 correctAnswer，如果为空则使用 Question 中的 answer
+    final answer = widget.mistakeRecord.correctAnswer?.isNotEmpty == true
+        ? widget.mistakeRecord.correctAnswer!
+        : (widget.question.answer ?? '');
+
+    if (answer.isNotEmpty) {
+      if (answer.contains(',')) {
+        _selectedAnswers = answer.split(',').toSet();
+      } else {
+        if (widget.question.options?.isNotEmpty == true && answer.length > 1) {
+          _selectedAnswers = answer.split('').toSet();
+        } else {
+          _selectedAnswers = {answer};
+        }
+      }
+    } else {
+      _selectedAnswers = {};
+    }
+  }
+
+  void _initSelectedUserAnswers() {
+    final answer = widget.mistakeRecord.userAnswer ?? '';
+    if (answer.isNotEmpty) {
+      if (answer.contains(',')) {
+        _selectedUserAnswers = answer.split(',').toSet();
+      } else {
+        if (widget.question.options?.isNotEmpty == true && answer.length > 1) {
+          _selectedUserAnswers = answer.split('').toSet();
+        } else {
+          _selectedUserAnswers = {answer};
+        }
+      }
+    } else {
+      _selectedUserAnswers = {};
+    }
   }
 
   @override
   void didUpdateWidget(QuestionDetailsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 如果 question 对象变了，更新选中的答案
-    if (oldWidget.question.answer != widget.question.answer) {
-      _selectedAnswer = widget.question.answer;
+    if (oldWidget.question.answer != widget.question.answer ||
+        oldWidget.mistakeRecord.correctAnswer !=
+            widget.mistakeRecord.correctAnswer) {
+      _initSelectedAnswers();
+    }
+    if (oldWidget.mistakeRecord.userAnswer != widget.mistakeRecord.userAnswer) {
+      _initSelectedUserAnswers();
     }
   }
 
@@ -246,17 +292,28 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
           // 题目内容 (索引 0)
           _buildAnimatedItem(
             animationIndex++,
-            _buildSection(
+            MistakeSection(
               title: '题目内容',
               icon: CupertinoIcons.doc_text,
               actionButton: _buildOcrFeedbackButton(),
-              child: MathMarkdownText(
-                text: widget.question.content,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textPrimary,
-                  height: 1.6,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MathMarkdownText(
+                    text: widget.question.content,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppColors.textPrimary,
+                      height: 1.6,
+                    ),
+                  ),
+                  if (widget.question.extractedImages != null &&
+                      widget.question.extractedImages!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ExtractedImagesWidget(
+                        extractedImages: widget.question.extractedImages),
+                  ],
+                ],
               ),
             ),
           ),
@@ -268,10 +325,10 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
               widget.question.options!.isNotEmpty)
             _buildAnimatedItem(
               animationIndex++,
-              _buildSection(
+              MistakeSection(
                 title: '选项',
                 icon: CupertinoIcons.list_bullet,
-                child: _buildOptionsWidget(),
+                child: OptionsListWidget(options: widget.question.options!),
               ),
             ),
 
@@ -279,24 +336,21 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
               widget.question.options!.isNotEmpty)
             const SizedBox(height: AppConstants.spacingM),
 
-          // 答案和笔记 (索引 2)
+          // 答案对比 (索引 2)
           _buildAnimatedItem(
             animationIndex++,
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 添加笔记
+                  // 我的答案
                   Expanded(
-                    flex: 50,
-                    child: _buildSection(
-                      title: '错题笔记',
-                      icon: CupertinoIcons.pencil,
-                      iconColor: AppColors.primary,
+                    child: MistakeSection(
+                      title: '我的答案',
+                      icon: CupertinoIcons.person_fill,
+                      iconColor: AppColors.secondary,
                       isEditable: true,
-                      child: MistakeNoteSection(
-                        mistakeRecord: widget.mistakeRecord,
-                      ),
+                      child: _buildUserAnswerWidget(),
                     ),
                   ),
 
@@ -304,8 +358,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
 
                   // 正确答案
                   Expanded(
-                    flex: 50,
-                    child: _buildSection(
+                    child: MistakeSection(
                       title: '正确答案',
                       icon: CupertinoIcons.checkmark_seal_fill,
                       iconColor: AppColors.success,
@@ -320,10 +373,26 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
 
           const SizedBox(height: AppConstants.spacingM),
 
-          // 错因分析 (索引 3)
+          // 错题笔记 (索引 3)
           _buildAnimatedItem(
             animationIndex++,
-            _buildSection(
+            MistakeSection(
+              title: '错题笔记',
+              icon: CupertinoIcons.pencil,
+              iconColor: AppColors.primary,
+              isEditable: true,
+              child: MistakeNoteSection(
+                mistakeRecord: widget.mistakeRecord,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: AppConstants.spacingM),
+
+          // 错因分析 (索引 4)
+          _buildAnimatedItem(
+            animationIndex++,
+            MistakeSection(
               title: '错因分析',
               icon: CupertinoIcons.exclamationmark_triangle_fill,
               iconColor: AppColors.error,
@@ -350,72 +419,74 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
           if (widget.question.knowledgePointIds.isNotEmpty)
             Column(
               children: [
-            _buildAnimatedItem(animationIndex++, _buildKnowledgePointSection()),
+                _buildAnimatedItem(
+                    animationIndex++, _buildKnowledgePointSection()),
                 const SizedBox(height: AppConstants.spacingM),
               ],
             ),
 
           // 解题提示 (索引 6)
-          if (widget.question.solvingHint != null && widget.question.solvingHint!.isNotEmpty)
+          if (widget.question.solvingHint != null &&
+              widget.question.solvingHint!.isNotEmpty)
             _buildAnimatedItem(animationIndex++, _buildSolvingHintSection()),
         ],
       ),
     );
   }
 
-  Widget _buildOptionsWidget() {
-    return Column(
-      children: widget.question.options!.asMap().entries.map((entry) {
-        final index = entry.key;
-        final option = entry.value;
-        final label = String.fromCharCode(65 + index); // A, B, C, D...
+  Widget _buildUserAnswerWidget() {
+    // 判断是否为选择题
+    final bool isChoiceQuestion =
+        widget.question.options != null && widget.question.options!.isNotEmpty;
 
-        String cleanedOption = option;
-        final prefixPattern = RegExp(r'^[A-Z]\.?\s*');
-        if (prefixPattern.hasMatch(option)) {
-          cleanedOption = option.replaceFirst(prefixPattern, '');
-        }
+    if (isChoiceQuestion) {
+      final optionCount = widget.question.options!.length;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: MathMarkdownText(
-                  text: cleanedOption,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: AppColors.textPrimary,
-                    height: 1.5,
-                  ),
-                  scrollable: true,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
+      return ChoiceSelectorWidget(
+        optionCount: optionCount,
+        selectedAnswers: _selectedUserAnswers,
+        activeColor: AppColors.error,
+        onToggle: (label) async {
+          setState(() {
+            if (_selectedUserAnswers.contains(label)) {
+              _selectedUserAnswers.remove(label);
+            } else {
+              _selectedUserAnswers.add(label);
+            }
+          });
+
+          final sortedAnswers = _selectedUserAnswers.toList()..sort();
+          final newAnswer = sortedAnswers.join(',');
+
+          try {
+            await MistakeService().updateMistakeRecord(
+              recordId: widget.mistakeRecord.id,
+              data: {'userAnswer': newAnswer},
+            );
+          } catch (e) {
+            print('更新用户答案失败: $e');
+            if (mounted) {
+              _initSelectedUserAnswers();
+              setState(() {});
+            }
+          }
+        },
+      );
+    } else {
+      // 非选择题
+      return EditableTextCard(
+        initialText: widget.mistakeRecord.userAnswer,
+        placeholder: '点击记录',
+        borderColor: AppColors.error,
+        textColor: AppColors.error,
+        onSave: (newAnswer) async {
+          await MistakeService().updateMistakeRecord(
+            recordId: widget.mistakeRecord.id,
+            data: {'userAnswer': newAnswer},
+          );
+        },
+      );
+    }
   }
 
   Widget _buildAnswerWidget() {
@@ -427,96 +498,72 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
     if (isChoiceQuestion) {
       final optionCount = widget.question.options!.length;
 
-      return Column(
-        children: List.generate((optionCount / 2).ceil(), (rowIndex) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: rowIndex < (optionCount / 2).ceil() - 1 ? 8 : 0),
-            child: Row(
-              children: [
-                for (int colIndex = 0; colIndex < 2; colIndex++) ...[
-                  if (colIndex > 0) const SizedBox(width: 8),
-                  Builder(
-                    builder: (context) {
-                      final index = rowIndex * 2 + colIndex;
-                      if (index >= optionCount) {
-                        return const Expanded(child: SizedBox());
-                      }
-                      
-          final label = String.fromCharCode(65 + index); // A, B, C, D...
-          final isSelected = _selectedAnswer == label;
+      return ChoiceSelectorWidget(
+        optionCount: optionCount,
+        selectedAnswers: _selectedAnswers,
+        activeColor: AppColors.success,
+        onToggle: (label) async {
+          // 更新本地状态（多选逻辑：反选）
+          setState(() {
+            if (_selectedAnswers.contains(label)) {
+              _selectedAnswers.remove(label);
+            } else {
+              _selectedAnswers.add(label);
+            }
+          });
 
-                      return Expanded(
-                        child: GestureDetector(
-            onTap: () async {
-              // 添加触觉反馈
-              HapticFeedback.selectionClick();
+          // 构建新的答案字符串（排序并用逗号分隔）
+          final sortedAnswers = _selectedAnswers.toList()..sort();
+          final newAnswer = sortedAnswers.join(',');
 
-              // 立即更新本地状态，提供即时反馈
-              setState(() {
-                _selectedAnswer = label;
-              });
+          // 异步更新数据库
+          try {
+            // 更新 MistakeRecord 的 correctAnswer
+            await MistakeService().updateMistakeRecord(
+              recordId: widget.mistakeRecord.id,
+              data: {'correctAnswer': newAnswer},
+            );
 
-              // 异步更新数据库
-              try {
-                await MistakeService().updateQuestionAnswer(
-                  widget.question.id,
-                  label,
-                );
-              } catch (e) {
-                print('更新答案失败: $e');
-                // 如果更新失败，恢复原状态
-                if (mounted) {
-                  setState(() {
-                    _selectedAnswer = widget.question.answer;
-                  });
-                }
-              }
-            },
-            child: Container(
-              height: 36,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.success
-                    : AppColors.success.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.success.withValues(
-                    alpha: isSelected ? 1.0 : 0.3,
-                  ),
-                  width: isSelected ? 2 : 1.5,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected
-                        ? CupertinoColors.white
-                        : AppColors.success,
-                  ),
-                ),
-              ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ],
-            ),
-          );
-        }),
+            // 同时更新 Question 的 answer (如果需要同步)
+            await MistakeService().updateQuestionAnswer(
+              widget.question.id,
+              newAnswer,
+            );
+          } catch (e) {
+            print('更新答案失败: $e');
+            // 如果更新失败，恢复原状态
+            if (mounted) {
+              _initSelectedAnswers();
+              setState(() {});
+            }
+          }
+        },
       );
     }
 
-    return _NonChoiceAnswerDetailCard(
-      question: widget.question,
-      onAnswerChanged: (answer) {
-        setState(() {
-          _selectedAnswer = answer;
-        });
+    return EditableTextCard(
+      initialText: widget.mistakeRecord.correctAnswer?.isNotEmpty == true
+          ? widget.mistakeRecord.correctAnswer
+          : widget.question.answer,
+      placeholder: '点击添加',
+      borderColor: AppColors.success,
+      textColor: AppColors.success,
+      onSave: (newAnswer) async {
+        // 更新 MistakeRecord 的 correctAnswer
+        await MistakeService().updateMistakeRecord(
+          recordId: widget.mistakeRecord.id,
+          data: {'correctAnswer': newAnswer},
+        );
+
+        // 同时更新 Question 的 answer
+        await MistakeService().updateQuestionAnswer(
+          widget.question.id,
+          newAnswer,
+        );
+
+        if (mounted) {
+          // widget.onAnswerChanged(newAnswer);
+        }
       },
     );
   }
@@ -524,7 +571,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
   Widget _buildModuleSection() {
     final moduleIds = widget.question.moduleIds;
 
-    return _buildSection(
+    return MistakeSection(
       title: moduleIds.length > 1 ? '相关模块（综合题）' : '相关模块',
       icon: CupertinoIcons.square_stack_3d_up_fill,
       iconColor: AppColors.primary,
@@ -589,7 +636,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
     final kpIds = widget.question.knowledgePointIds;
     final primaryKpIds = widget.question.primaryKnowledgePointIds ?? [];
 
-    return _buildSection(
+    return MistakeSection(
       title: '相关知识点 (${kpIds.length})',
       icon: CupertinoIcons.book_fill,
       iconColor: AppColors.accent,
@@ -603,7 +650,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isPrimary 
+              color: isPrimary
                   ? AppColors.warning.withValues(alpha: 0.15)
                   : AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
@@ -643,7 +690,7 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
   }
 
   Widget _buildSolvingHintSection() {
-    return _buildSection(
+    return MistakeSection(
       title: '解题提示',
       icon: CupertinoIcons.lightbulb_fill,
       iconColor: AppColors.warning,
@@ -657,282 +704,16 @@ class _QuestionDetailsCardState extends State<QuestionDetailsCard>
             width: 1.5,
           ),
         ),
-              child: MathMarkdownText(
-                text: widget.question.solvingHint!,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textPrimary,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    Color? iconColor,
-    required Widget child,
-    bool isEditable = false,
-    Widget? actionButton,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(AppConstants.spacingL),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
-        border: Border.all(color: AppColors.divider, width: 1),
-        boxShadow: AppColors.shadowSoft,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: iconColor ?? AppColors.primary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              if (isEditable) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    '可编辑',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
-              if (actionButton != null) ...[
-                const Spacer(),
-                actionButton,
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _NonChoiceAnswerDetailCard extends StatefulWidget {
-  final Question question;
-  final ValueChanged<String> onAnswerChanged;
-
-  const _NonChoiceAnswerDetailCard({
-    required this.question,
-    required this.onAnswerChanged,
-  });
-
-  @override
-  State<_NonChoiceAnswerDetailCard> createState() => _NonChoiceAnswerDetailCardState();
-}
-
-class _NonChoiceAnswerDetailCardState extends State<_NonChoiceAnswerDetailCard> {
-  String? _answer;
-  bool _isSaving = false;
-
-  bool get _hasAnswer => _answer != null && _answer!.trim().isNotEmpty;
-
-  @override
-  void initState() {
-    super.initState();
-    _answer = widget.question.answer;
-  }
-
-  @override
-  void didUpdateWidget(covariant _NonChoiceAnswerDetailCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.question.answer != widget.question.answer) {
-      _answer = widget.question.answer;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _isSaving ? null : _handleEditAnswer,
-      child: Stack(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 72),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-            decoration: BoxDecoration(
-              color: _hasAnswer
-                  ? AppColors.success.withValues(alpha: 0.06)
-                  : AppColors.success.withValues(alpha: 0.02),
-              borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-              border: Border.all(
-                color: AppColors.success.withValues(
-                  alpha: _hasAnswer ? 0.28 : 0.16,
-                ),
-                width: 1.4,
-              ),
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: _hasAnswer
-                  ? KeyedSubtree(
-                      key: const ValueKey('answer-filled'),
-                      child: _AnswerDetailFilledContent(
-                        answer: _answer!.trim(),
-                      ),
-                    )
-                  : const KeyedSubtree(
-                      key: ValueKey('answer-empty'),
-                      child: _AnswerDetailEmptyContent(),
-                    ),
-            ),
-          ),
-          if (_isSaving)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey5.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.radiusMedium,
-                    ),
-                  ),
-                  child: const Center(child: CupertinoActivityIndicator()),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _handleEditAnswer() async {
-    final result = await showCupertinoDialog<String>(
-      context: context,
-      builder: (context) => EditAnswerDialog(
-        initialAnswer: _answer,
-        question: widget.question,
-      ),
-    );
-
-    if (!mounted || result == null) {
-      return;
-    }
-
-    final trimmed = result.trim();
-    final previousAnswer = _answer;
-    final previousNormalized = (previousAnswer ?? '').trim();
-
-    if (previousNormalized == trimmed) {
-      return;
-    }
-
-    setState(() {
-      _answer = trimmed;
-      _isSaving = true;
-    });
-
-    try {
-      await MistakeService().updateQuestionAnswer(
-        widget.question.id,
-        trimmed,
-      );
-      if (mounted) {
-        widget.onAnswerChanged(trimmed);
-      }
-    } catch (e) {
-      print('更新答案失败: $e');
-      if (mounted) {
-        setState(() {
-          _answer = previousAnswer;
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
-  }
-}
-
-class _AnswerDetailEmptyContent extends StatelessWidget {
-  const _AnswerDetailEmptyContent();
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(CupertinoIcons.plus_circle, color: AppColors.success, size: 18),
-          SizedBox(width: 6),
-          Text(
-            '点击添加答案',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.success,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AnswerDetailFilledContent extends StatelessWidget {
-  final String answer;
-
-  const _AnswerDetailFilledContent({required this.answer});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MathMarkdownText(
-          text: answer,
+        child: MathMarkdownText(
+          text: widget.question.solvingHint!,
           style: const TextStyle(
-            fontSize: 15,
-            color: AppColors.textSecondary,
-            height: 1.55,
+            fontSize: 16,
+            color: AppColors.textPrimary,
+            height: 1.5,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          '点击编辑正确答案',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.success.withValues(alpha: 0.7),
-          ),
-        ),
-      ],
+      ),
     );
   }
-
 }

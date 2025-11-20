@@ -33,7 +33,7 @@ class ApiConfig {
   static const String imagesBucketId = 'images';
   static const String documentsBucketId = 'documents';
   static const String originQuestionImageBucketId = 'origin_question_image'; // 原始错题图片
-  static const String extractedImagesBucketId = 'extracted-images'; // 提取的图表
+  static const String extractedImagesBucketId = 'extracted_images'; // 提取的图表
   
   // API超时配置
   static const Duration connectTimeout = Duration(seconds: 30);

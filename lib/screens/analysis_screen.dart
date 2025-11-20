@@ -11,6 +11,7 @@ import 'subject_detail_screen.dart';
 import 'ai_analysis_review_screen.dart';
 import 'auth/login_screen.dart';
 import 'note_aggregation_screen.dart';
+import '../widgets/analysis/knowledge_galaxy_view.dart';
 
 /// 分析页 - 错题分析和知识点地图
 class AnalysisScreen extends StatefulWidget {
@@ -216,6 +217,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> with WidgetsBindingObse
                   _buildStatsCard(stats),
                   
                   const SizedBox(height: AppConstants.spacingL),
+                  
+                  // 知识点全景图
+                  if (filteredPoints.isNotEmpty) ...[
+                    KnowledgeGalaxyView(
+                      points: filteredPoints,
+                      onPointTap: (point) {
+                        // 点击知识点跳转到对应学科详情
+                        _handleSubjectCardTap(point.subject.displayName, [point]);
+                      },
+                    ),
+                    const SizedBox(height: AppConstants.spacingL),
+                  ],
                   
                   // 学科列表
                   if (focusSubjects.isEmpty)

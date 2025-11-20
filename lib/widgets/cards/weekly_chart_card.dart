@@ -2,13 +2,17 @@ import 'package:flutter/cupertino.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../config/colors.dart';
 
+enum WeeklyChartType { all, mistake, practice }
+
 /// 本周数据图表卡片 - 展示错题和练习题目的每日数据
 class WeeklyChartCard extends StatefulWidget {
   final List<Map<String, dynamic>> weeklyData;
+  final WeeklyChartType type;
 
   const WeeklyChartCard({
     super.key,
     required this.weeklyData,
+    this.type = WeeklyChartType.all,
   });
 
   @override
@@ -63,6 +67,11 @@ class _WeeklyChartCardState extends State<WeeklyChartCard>
       _animationController.reset();
       _animationController.forward();
     }
+    // 如果类型改变，也重置动画
+    if (oldWidget.type != widget.type) {
+      _animationController.reset();
+      _animationController.forward();
+    }
   }
 
   @override
@@ -73,23 +82,38 @@ class _WeeklyChartCardState extends State<WeeklyChartCard>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // 错题记录图表
-        _buildChartCard(
+    switch (widget.type) {
+      case WeeklyChartType.mistake:
+        return _buildChartCard(
           title: '错题记录',
           color: AppColors.mistake,
           dataKey: 'mistakeCount',
-        ),
-        const SizedBox(height: 16),
-        // 复习题目图表
-        _buildChartCard(
+        );
+      case WeeklyChartType.practice:
+        return _buildChartCard(
           title: '复习题目',
           color: AppColors.accent,
           dataKey: 'practiceCount',
-        ),
-      ],
-    );
+        );
+      case WeeklyChartType.all:
+        return Column(
+          children: [
+            // 错题记录图表
+            _buildChartCard(
+              title: '错题记录',
+              color: AppColors.mistake,
+              dataKey: 'mistakeCount',
+            ),
+            const SizedBox(height: 16),
+            // 复习题目图表
+            _buildChartCard(
+              title: '复习题目',
+              color: AppColors.accent,
+              dataKey: 'practiceCount',
+            ),
+          ],
+        );
+    }
   }
 
   Widget _buildChartCard({
@@ -440,4 +464,3 @@ class _WeeklyChartCardState extends State<WeeklyChartCard>
     return 20;
   }
 }
-

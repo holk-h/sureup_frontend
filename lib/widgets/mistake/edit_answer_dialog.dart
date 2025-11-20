@@ -25,7 +25,7 @@ class EditAnswerDialog extends StatefulWidget {
 class _EditAnswerDialogState extends State<EditAnswerDialog> {
   late final bool _isChoiceQuestion;
   late TextEditingController _controller;
-  String? _selectedOption;
+  Set<String> _selectedOptions = {};
   bool _isChanged = false;
 
   @override
@@ -35,7 +35,13 @@ class _EditAnswerDialogState extends State<EditAnswerDialog> {
         widget.question.options != null && widget.question.options!.isNotEmpty;
 
     if (_isChoiceQuestion) {
-      _selectedOption = widget.initialAnswer;
+      if (widget.initialAnswer != null && widget.initialAnswer!.isNotEmpty) {
+        _selectedOptions = widget.initialAnswer!
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet();
+      }
     } else {
       _controller = TextEditingController(text: widget.initialAnswer ?? '');
       _controller.addListener(() {
@@ -59,13 +65,11 @@ class _EditAnswerDialogState extends State<EditAnswerDialog> {
   Widget build(BuildContext context) {
     final trimmedText = _isChoiceQuestion ? null : _controller.text.trim();
     final bool canSave = _isChoiceQuestion
-        ? _selectedOption != null &&
-            _selectedOption!.isNotEmpty &&
-            _selectedOption != widget.initialAnswer
+        ? _isChanged && _selectedOptions.isNotEmpty
         : _isChanged && trimmedText!.isNotEmpty;
 
     return CupertinoAlertDialog(
-      title: Text(_isChoiceQuestion ? '选择正确答案' : '输入正确答案'),
+      title: Text(_isChoiceQuestion ? '选择正确答案(可多选)' : '输入正确答案'),
       content: Padding(
         padding: const EdgeInsets.only(top: 12),
         child: _isChoiceQuestion ? _buildChoiceSelector() : _buildTextEditor(),
@@ -79,8 +83,9 @@ class _EditAnswerDialogState extends State<EditAnswerDialog> {
           isDefaultAction: true,
           onPressed: canSave
               ? () {
-                  final result =
-                      _isChoiceQuestion ? _selectedOption! : trimmedText!;
+                  final result = _isChoiceQuestion
+                      ? (List<String>.from(_selectedOptions)..sort()).join(',')
+                      : trimmedText!;
                   widget.onSave?.call(result);
                   Navigator.of(context).pop(result);
                 }
@@ -108,13 +113,19 @@ class _EditAnswerDialogState extends State<EditAnswerDialog> {
             final cleanedOption = prefixPattern.hasMatch(option)
                 ? option.replaceFirst(prefixPattern, '')
                 : option;
-            final bool isSelected = _selectedOption == label;
+            final bool isSelected = _selectedOptions.contains(label);
 
             return GestureDetector(
               onTap: () {
                 setState(() {
-                  _selectedOption = label;
-                  _isChanged = _selectedOption != widget.initialAnswer;
+                  if (isSelected) {
+                    _selectedOptions.remove(label);
+                  } else {
+                    _selectedOptions.add(label);
+                  }
+                  
+                  final currentAnswer = (List<String>.from(_selectedOptions)..sort()).join(',');
+                  _isChanged = currentAnswer != (widget.initialAnswer ?? '');
                 });
               },
               child: Container(

@@ -151,7 +151,7 @@ class _NoteEmptyContent extends StatelessWidget {
           Icon(CupertinoIcons.plus_circle, color: AppColors.primary, size: 18),
           SizedBox(width: 6),
           Text(
-            '点击添加笔记',
+            '点击添加',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.primary,
@@ -175,12 +175,16 @@ class _NoteFilledContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          note,
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-            height: 1.5,
+        Container(
+          width: double.infinity, // Ensure it takes full width for left alignment
+          alignment: Alignment.centerLeft, // Align text to the left
+          child: Text(
+            note,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
           ),
         ),
         const SizedBox(height: 8),

@@ -72,8 +72,8 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
     _setupAnimations();
     _setupEventListeners();
     
-    // 立即建立 Realtime 订阅（订阅所有记录）
-    _previewService.setupRealtimeSubscription(widget.mistakeRecordIds);
+    // 移除立即建立 Realtime 订阅，改为在加载数据后根据状态按需订阅
+    // _previewService.setupRealtimeSubscription(widget.mistakeRecordIds);
     
     // 预加载初始页面和相邻页面
     _preloadPage(widget.initialIndex);
@@ -121,7 +121,14 @@ class _MistakePreviewScreenState extends State<MistakePreviewScreen>
       
       if (record == null) {
         throw Exception('错题记录不存在');
-        }
+      }
+
+      // 检查状态，如果未完成，则订阅 Realtime
+      if (record.analysisStatus != AnalysisStatus.completed && 
+          record.analysisStatus != AnalysisStatus.failed) {
+        print('📡 记录 $recordId 状态为 ${record.analysisStatus}，建立 Realtime 订阅');
+        _previewService.setupRealtimeSubscription([recordId]);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

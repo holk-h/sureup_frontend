@@ -21,7 +21,7 @@ class QuestionScreen extends StatefulWidget {
 
 class _QuestionScreenState extends State<QuestionScreen> {
   int _currentIndex = 0;
-  String? _selectedAnswer;
+  Set<String> _selectedAnswers = {}; // 改为支持多选
   bool _hasSubmitted = false;
   late PracticeSession _session;
 
@@ -193,21 +193,31 @@ class _QuestionScreenState extends State<QuestionScreen> {
         _currentQuestion.options?.length ?? 0,
         (index) {
           final optionLabel = String.fromCharCode(65 + index); // A, B, C, D
-          final isSelected = _selectedAnswer == optionLabel;
-          final isCorrect = optionLabel == _currentQuestion.answer;
+          final isSelected = _selectedAnswers.contains(optionLabel);
+          
+          // 判断选项是否是正确答案的一部分
+          final correctAnswer = _currentQuestion.answer ?? '';
+          // 支持逗号分隔的格式 "A,C" 或无分隔符 "AC"
+          final correctOptions = correctAnswer.contains(',') 
+              ? correctAnswer.split(',') 
+              : correctAnswer.split('');
+          final isCorrectOption = correctOptions.contains(optionLabel);
           
           Color? backgroundColor;
           Color? borderColor;
           
           if (_hasSubmitted) {
-            if (isCorrect) {
+            if (isCorrectOption) {
+              // 正确答案显示绿色
               backgroundColor = AppColors.success.withOpacity(0.1);
               borderColor = AppColors.success;
-            } else if (isSelected && !isCorrect) {
+            } else if (isSelected && !isCorrectOption) {
+              // 选错的显示红色
               backgroundColor = AppColors.error.withOpacity(0.1);
               borderColor = AppColors.error;
             }
           } else if (isSelected) {
+            // 选中状态显示主色
             backgroundColor = AppColors.primary.withOpacity(0.1);
             borderColor = AppColors.primary;
           }
@@ -217,7 +227,11 @@ class _QuestionScreenState extends State<QuestionScreen> {
             child: GestureDetector(
               onTap: _hasSubmitted ? null : () {
                 setState(() {
-                  _selectedAnswer = optionLabel;
+                  if (_selectedAnswers.contains(optionLabel)) {
+                    _selectedAnswers.remove(optionLabel);
+                  } else {
+                    _selectedAnswers.add(optionLabel);
+                  }
                 });
               },
               child: Container(
@@ -271,13 +285,13 @@ class _QuestionScreenState extends State<QuestionScreen> {
                     ),
                     
                     // 对错图标
-                    if (_hasSubmitted && isCorrect)
+                    if (_hasSubmitted && isCorrectOption)
                       const Icon(
                         CupertinoIcons.checkmark_circle_fill,
                         color: AppColors.success,
                         size: 24,
                       )
-                    else if (_hasSubmitted && isSelected && !isCorrect)
+                    else if (_hasSubmitted && isSelected && !isCorrectOption)
                       const Icon(
                         CupertinoIcons.xmark_circle_fill,
                         color: AppColors.error,
@@ -294,7 +308,10 @@ class _QuestionScreenState extends State<QuestionScreen> {
   }
 
   Widget _buildExplanation() {
-    final isCorrect = _selectedAnswer == _currentQuestion.answer;
+    // 构建用户答案（排序并用逗号分隔）
+    final sortedAnswers = _selectedAnswers.toList()..sort();
+    final userAnswerStr = sortedAnswers.join(',');
+    final isCorrect = userAnswerStr == (_currentQuestion.answer ?? '');
     
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacingL),
@@ -367,9 +384,9 @@ class _QuestionScreenState extends State<QuestionScreen> {
         top: false,
         child: CupertinoButton(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          color: _selectedAnswer != null ? AppColors.primary : AppColors.divider,
+          color: _selectedAnswers.isNotEmpty ? AppColors.primary : AppColors.divider,
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-          onPressed: _selectedAnswer != null ? _handleButtonPress : null,
+          onPressed: _selectedAnswers.isNotEmpty ? _handleButtonPress : null,
           child: Text(
             _hasSubmitted
                 ? (_isLastQuestion ? '查看结果' : '下一题')
@@ -390,12 +407,18 @@ class _QuestionScreenState extends State<QuestionScreen> {
       // 提交答案
       setState(() {
         _hasSubmitted = true;
-        final isCorrect = _selectedAnswer == _currentQuestion.answer;
+        
+        // 构建用户答案（排序并用逗号分隔）
+        final sortedAnswers = _selectedAnswers.toList()..sort();
+        final userAnswerStr = sortedAnswers.join(',');
+        
+        // 检查是否正确（完全匹配）
+        final isCorrect = userAnswerStr == (_currentQuestion.answer ?? '');
         
         // 更新会话数据 - 使用新的QuestionResult模型
         final newResult = QuestionResult(
           questionId: _currentQuestion.id,
-          userAnswer: _selectedAnswer,
+          userAnswer: userAnswerStr,
           isCorrect: isCorrect,
           timeSpent: 0, // TODO: 实际计算用时
           answeredAt: DateTime.now(),
@@ -413,7 +436,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
       } else {
         setState(() {
           _currentIndex++;
-          _selectedAnswer = null;
+          _selectedAnswers.clear();
           _hasSubmitted = false;
         });
       }

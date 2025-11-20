@@ -1,5 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../config/colors.dart';
 import '../config/constants.dart';
 import '../widgets/cards/daily_task_summary_card.dart';
@@ -43,13 +46,17 @@ class _HomeScreenState extends State<HomeScreen>
   
   bool _isLoading = false; // 防止重复加载
   bool _isDataLoaded = false; // 数据是否已加载完成（用于避免图表闪烁）
-  
+  bool _isLocaleInitialized = false; // 标记本地化数据是否已初始化
+
   // 用于触发鼓励语和一言刷新的key
   Key _contentRefreshKey = UniqueKey();
   DateTime? _lastVisibleTime;
   
   // 滚动控制器 - 用于预热滚动
   final ScrollController _scrollController = ScrollController();
+
+  // 图表类型选择
+  WeeklyChartType _selectedChartType = WeeklyChartType.mistake;
   
   @override
   bool get wantKeepAlive => true; // 保持页面状态，避免重复构建
@@ -111,6 +118,15 @@ class _HomeScreenState extends State<HomeScreen>
     
     final startTime = DateTime.now();
     print('🏠 HomeScreen initState 开始');
+
+    // 确保本地化数据已初始化（防御性编程，防止热重载导致 main() 未运行）
+    initializeDateFormatting('zh_CN', null).then((_) {
+      if (mounted) {
+        setState(() {
+          _isLocaleInitialized = true;
+        });
+      }
+    });
     
     // 监听应用生命周期变化
     WidgetsBinding.instance.addObserver(this);
@@ -422,61 +438,52 @@ class _HomeScreenState extends State<HomeScreen>
           // 启用缓存扩展，减少重建
           cacheExtent: 500,
           slivers: [
-          // 主内容
-          SliverToBoxAdapter(
-            child: SafeArea(
-              bottom: false, // 不处理底部安全区域，因为自定义导航栏已经处理了
-              child: Padding(
-                padding: const EdgeInsets.all(AppConstants.spacingM),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    // 问候语和欢迎语整合
-                    _buildHeaderSection(userName),
-                    
-                    const SizedBox(height: AppConstants.spacingL),
-                    
-                    // 每日任务卡片
-                    DailyTaskSummaryCard(
-                      task: _todayTask,
-                      isLoading: _isLoadingTask,
-                      continuousDays: _continuousDays,
-                      onTap: authProvider.isLoggedIn 
-                          ? _navigateToDailyTask 
-                          : _navigateToLogin,
-                    ),
-                    
-                    const SizedBox(height: AppConstants.spacingL),
-                    
-                    // 过去一周数据图表（使用 RepaintBoundary 隔离重绘）
-                    // 只有在数据加载完成后才显示，避免闪烁
-                    if (_isDataLoaded) ...[
-                    _buildSectionHeader('📊 过去一周'),
-                    const SizedBox(height: AppConstants.spacingM),
-                    RepaintBoundary(
-                      child: WeeklyChartCard(
-                        weeklyData: weeklyData,
+            // 顶部安全区域
+            SliverToBoxAdapter(
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppConstants.spacingM,
+                    AppConstants.spacingS,
+                    AppConstants.spacingM,
+                    AppConstants.spacingM,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. 头部区域（加大版）
+                      const SizedBox(height: 8),
+                      _buildModernHeader(userName),
+                      
+                      const SizedBox(height: AppConstants.spacingM), // 下边距小点
+                      
+                      // 2. 每日任务卡片 (Hero Section) - 直接上移，移除统计卡片
+                      DailyTaskSummaryCard(
+                        task: _todayTask,
+                        isLoading: _isLoadingTask,
+                        continuousDays: _continuousDays,
+                        onTap: authProvider.isLoggedIn 
+                            ? _navigateToDailyTask 
+                            : _navigateToLogin,
                       ),
-                    ),
-                    ] else ...[
-                      // 数据加载中的占位符
-                      _buildSectionHeader('📊 过去一周'),
+                      
+                      const SizedBox(height: AppConstants.spacingL),
+                      
+                      // 3. 学习分析图表 (带切换)
+                      _buildAnalysisSection(weeklyData),
+                      
                       const SizedBox(height: AppConstants.spacingM),
-                      _buildChartPlaceholder(),
+                      
+                      // 4. 一言（使用 key 触发重建）
+                      HitokotoWidget(key: _contentRefreshKey),
+                      
+                      const SizedBox(height: AppConstants.spacingXXL),
                     ],
-                    
-                    const SizedBox(height: AppConstants.spacingM),
-                    
-                    // 一言（使用 key 触发重建）
-                    HitokotoWidget(key: _contentRefreshKey),
-                    
-                    const SizedBox(height: AppConstants.spacingXXL),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
           ],
         ),
       ),
@@ -505,104 +512,125 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
   
-  // 鼓励语列表（静态常量避免重复创建）
+  // 鼓励语列表
   static const _encouragements = [
-    '冲鸭！今天也要元气满满',
-    '每一道题都是在变强',
-    '你超棒的，继续保持',
-    '学习使我快乐！',
-    '又进步了一点点呢',
-    '做自己的学霸',
-    '慢慢来，比较快',
-    '今天的我比昨天更强',
-    '热爱可抵岁月漫长',
-    '今天也要加油呀～',
-    '小步快跑，稳步前进',
-    '你已经很棒了',
-    '学习路上不孤单',
-    '每天进步一点点',
-    '相信自己，你可以的',
-    '累了就休息，不累就继续',
-    '学习是件很酷的事',
-    '今天的努力，明天的收获',
-    '别着急，慢慢来',
-    '你已经走在正确的路上',
-    '学习就像打怪升级',
-    '每一份努力都算数',
-    '保持节奏，享受过程',
-    '今天的你比昨天更优秀',
-    '学习是给自己的礼物',
-    '不慌不忙，稳步向前',
-    '你已经做得很好了',
-    '学习让我更自信',
-    '每天都是新的开始',
-    '坚持就是胜利',
-    '你比想象中更强大',
-    '学习让我快乐',
-    '今天的努力不会白费',
-    '一步一步，脚踏实地',
-    '你已经很棒了，继续加油',
-    '学习是场马拉松',
-    '保持热爱，奔赴山海',
-    '今天的你闪闪发光',
+    '冲鸭！今天也要元气满满', '每一道题都是在变强', '你超棒的，继续保持',
+    '学习使我快乐！', '又进步了一点点呢', '做自己的学霸',
+    '慢慢来，比较快', '今天的我比昨天更强', '热爱可抵岁月漫长',
+    '今天也要加油呀～', '小步快跑，稳步前进', '相信自己，你可以的'
   ];
 
   String _getRandomEncouragement() {
-    // 使用当前时间戳和随机因子来生成真正的随机数
     final seed = DateTime.now().millisecondsSinceEpoch + _contentRefreshKey.hashCode;
     final random = seed % _encouragements.length;
     return _encouragements[random];
   }
 
-  Widget _buildHeaderSection(String userName) {
-    final continuousDays = _stats['continuousDays'] ?? 0;
+  // 1. 现代头部设计（加大版）
+  Widget _buildModernHeader(String userName) {
     final greetingInfo = _getGreetingInfo();
+    final now = DateTime.now();
+    
+    // 防御性编程：如果本地化数据未初始化，使用简单的日期格式
+    String dateStr;
+    if (_isLocaleInitialized) {
+      try {
+        dateStr = DateFormat('MM月dd日 EEEE', 'zh_CN').format(now);
+      } catch (e) {
+        // 降级处理
+        dateStr = '${now.month}月${now.day}日';
+      }
+    } else {
+      // 降级处理
+      dateStr = '${now.month}月${now.day}日';
+    }
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 日期
           Text(
-            '${greetingInfo.greeting}，$userName ${greetingInfo.emoji}',
+            dateStr,
             style: const TextStyle(
-              fontSize: 32,
+              fontSize: 15, // 加大字号
               fontWeight: FontWeight.w600,
-              color: Color(0xFF2C2C2E),
-              letterSpacing: -0.5,
-              height: 1.1,
-              fontFamily: 'PingFang SC',
+              color: AppColors.textTertiary,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
+          // 问候语和用户名（合并，不换行）
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${greetingInfo.emoji} ',
+                  style: const TextStyle(
+                    fontSize: 38, // 增大字号
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'PingFang SC',
+                    height: 1.2,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                TextSpan(
+                  text: '${greetingInfo.greeting}，',
+                  style: const TextStyle(
+                    fontSize: 38, // 增大字号
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    fontFamily: 'PingFang SC',
+                    height: 1.2,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                TextSpan(
+                  text: userName,
+                  style: const TextStyle(
+                    fontSize: 38, // 增大字号
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    fontFamily: 'PingFang SC',
+                    height: 1.2,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12), // 上边距稍微大点
+          // 鼓励语
           FadeTransition(
             opacity: _encouragementAnimation,
             child: SlideTransition(
               position: _slideAnimation,
               child: Row(
                 children: [
+                  const SizedBox(width: 8), // 左边距
                   Container(
-                    width: 4,
-                    height: 26,
+                    width: 3, // 粗一点
+                    height: 18, // 高一点
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(2),
+                      color: AppColors.primary, // 绿色
+                      borderRadius: BorderRadius.circular(1.5),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      continuousDays > 0 
-                        ? '已连续学习 $continuousDays 天，${_getRandomEncouragement()}'
-                        : _getRandomEncouragement(),
+                      _getRandomEncouragement(),
                       style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 18, // 增大字号
                         color: AppColors.textSecondary,
-                        height: 1.4,
+                        fontWeight: FontWeight.w500,
                         letterSpacing: 0.2,
-                        fontFamily: 'PingFang SC',
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -614,117 +642,99 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w800,
-        color: AppColors.textPrimary,
-        letterSpacing: -0.5,
+  // 4. 分析图表部分
+  Widget _buildAnalysisSection(List<Map<String, dynamic>> weeklyData) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              '学习分析',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            // 自定义分段控件
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0).withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  _buildSegmentBtn('错题', WeeklyChartType.mistake),
+                  _buildSegmentBtn('复习', WeeklyChartType.practice),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_isDataLoaded)
+          WeeklyChartCard(
+            weeklyData: weeklyData,
+            type: _selectedChartType,
+          )
+        else
+          _buildChartPlaceholder(),
+      ],
+    );
+  }
+  
+  Widget _buildSegmentBtn(String label, WeeklyChartType type) {
+    final isSelected = _selectedChartType == type;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedChartType = type;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            )
+          ] : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.textPrimary : AppColors.textTertiary,
+          ),
+        ),
       ),
     );
   }
 
   /// 图表加载占位符
   Widget _buildChartPlaceholder() {
-    return Column(
-      children: [
-        // 错题记录占位
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: CupertinoColors.systemBackground,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.divider,
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '错题记录',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // 图表占位
-              Container(
-                height: 200,
-                alignment: Alignment.center,
-                child: const CupertinoActivityIndicator(),
-              ),
-            ],
-          ),
+    return Container(
+      height: 280,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.divider,
+          width: 1,
         ),
-        
-        const SizedBox(height: 12),
-        
-        // 复习题目占位
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: CupertinoColors.systemBackground,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.divider,
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '复习题目',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // 图表占位
-              Container(
-                height: 200,
-                alignment: Alignment.center,
-                child: const CupertinoActivityIndicator(),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
+      child: const Center(
+        child: CupertinoActivityIndicator(),
+      ),
     );
   }
 

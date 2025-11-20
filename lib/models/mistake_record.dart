@@ -39,6 +39,7 @@ class MistakeRecord {
   final String? errorReason; // 错因（可以是预定义的枚举值或自定义文本）
   final String? note; // 用户笔记
   final String? userAnswer; // 用户的错误答案
+  final String? correctAnswer; // 正确答案（新增）
   final bool isImportant; // 用户标记为重要
   
   // AI 分析相关
@@ -71,6 +72,7 @@ class MistakeRecord {
     this.errorReason,
     this.note,
     this.userAnswer,
+    this.correctAnswer,
     this.isImportant = false,
     this.analysisStatus = AnalysisStatus.pending,
     this.analysisError,
@@ -135,6 +137,7 @@ class MistakeRecord {
     'errorReason': errorReason,
     'note': note,
     'userAnswer': userAnswer,
+    'correctAnswer': correctAnswer,
     'isImportant': isImportant,
     'analysisStatus': analysisStatus.name,
     'analysisError': analysisError,
@@ -185,6 +188,7 @@ class MistakeRecord {
       errorReason: errorReasonValue,
       note: json['note'] as String?,
       userAnswer: json['userAnswer'] as String?,
+      correctAnswer: json['correctAnswer'] as String?,
       isImportant: json['isImportant'] as bool? ?? false,
       analysisStatus: json['analysisStatus'] != null
           ? AnalysisStatus.values.byName(json['analysisStatus'] as String)
@@ -230,6 +234,7 @@ class MistakeRecord {
     String? errorReason,
     String? note,
     String? userAnswer,
+    String? correctAnswer,
     bool? isImportant,
     AnalysisStatus? analysisStatus,
     String? analysisError,
@@ -253,6 +258,7 @@ class MistakeRecord {
     errorReason: errorReason ?? this.errorReason,
     note: note ?? this.note,
     userAnswer: userAnswer ?? this.userAnswer,
+    correctAnswer: correctAnswer ?? this.correctAnswer,
     isImportant: isImportant ?? this.isImportant,
     analysisStatus: analysisStatus ?? this.analysisStatus,
     analysisError: analysisError ?? this.analysisError,

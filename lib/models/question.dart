@@ -49,7 +49,8 @@ class Question {
   final List<String>? options; // 选项（选择题使用）
   final String? answer; // 答案
   final String? explanation; // 解析
-  final List<String>? imageIds; // 题目图片文件ID（支持多张，存储在bucket中）
+  final List<String>? imageIds; // 题目原始图片文件ID（支持多张，存储在bucket中）
+  final List<String>? extractedImages; // 提取的图表图片ID（存储在 extracted_images bucket 中）
   
   // AI增强字段
   final String? importance; // 知识点重要度 (high/basic/normal)
@@ -73,6 +74,7 @@ class Question {
     this.answer,
     this.explanation,
     this.imageIds,
+    this.extractedImages,
     this.importance,
     this.solvingHint,
     required this.createdAt,
@@ -97,6 +99,7 @@ class Question {
     'answer': answer,
     'explanation': explanation,
     'imageIds': imageIds,
+    'extractedImages': extractedImages,
     'importance': importance,
     'solvingHint': solvingHint,
     'createdAt': createdAt.toIso8601String(),
@@ -149,6 +152,7 @@ class Question {
     answer: json['answer'] as String?,
     explanation: json['explanation'] as String?,
     imageIds: (json['imageIds'] as List<dynamic>?)?.cast<String>(),
+    extractedImages: (json['extractedImages'] as List<dynamic>?)?.cast<String>(),
       importance: json['importance'] as String?,
       solvingHint: json['solvingHint'] as String?,
       createdAt: json['createdAt'] != null
@@ -177,6 +181,7 @@ class Question {
     String? answer,
     String? explanation,
     List<String>? imageIds,
+    List<String>? extractedImages,
     String? importance,
     String? solvingHint,
     DateTime? createdAt,
@@ -195,6 +200,7 @@ class Question {
     answer: answer ?? this.answer,
     explanation: explanation ?? this.explanation,
     imageIds: imageIds ?? this.imageIds,
+    extractedImages: extractedImages ?? this.extractedImages,
     importance: importance ?? this.importance,
     solvingHint: solvingHint ?? this.solvingHint,
     createdAt: createdAt ?? this.createdAt,

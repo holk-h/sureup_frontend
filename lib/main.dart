@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'config/colors.dart';
 import 'screens/main_screen.dart';
 import 'screens/subscription_screen.dart';
@@ -13,6 +14,9 @@ import 'providers/auth_provider.dart';
 void main() async {
   // 确保Flutter binding初始化
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🚀 初始化日期格式化本地数据（修复 DateFormat('...', 'zh_CN') 错误）
+  await initializeDateFormatting('zh_CN', null);
   
   // 🚀 预初始化本地存储服务（提升性能）
   await LocalStorageService().initialize();

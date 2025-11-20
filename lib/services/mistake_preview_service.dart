@@ -202,12 +202,28 @@ class MistakePreviewService {
   
   /// 建立 Realtime 订阅
   void setupRealtimeSubscription(List<String> recordIds) {
-    if (_realtimeSubscription != null || recordIds.isEmpty) {
+    // 过滤掉已经订阅的 ID
+    final newIds = recordIds.where((id) => !_subscribedRecordIds.contains(id)).toList();
+    
+    // 如果没有新 ID 且已有订阅，直接返回
+    if (newIds.isEmpty && _realtimeSubscription != null) {
+      return;
+    }
+    
+    // 添加新 ID 到订阅集合
+    _subscribedRecordIds.addAll(newIds);
+    
+    // 如果已经在订阅中，先关闭旧订阅
+    _realtimeSubscription?.close();
+    _realtimeSubscription = null;
+    
+    // 如果没有需要订阅的 ID，直接返回
+    if (_subscribedRecordIds.isEmpty) {
       return;
     }
     
     // 构建所有记录的频道列表
-    final channels = recordIds
+    final channels = _subscribedRecordIds
         .map((id) => 'databases.${ApiConfig.databaseId}.collections.${ApiConfig.mistakeRecordsCollectionId}.documents.$id')
         .toList();
     
@@ -220,7 +236,6 @@ class MistakePreviewService {
         onError: _handleRealtimeError,
       );
       
-      _subscribedRecordIds.addAll(recordIds);
       print('✅ Realtime 订阅已建立');
     } catch (e) {
       print('❌ 建立 Realtime 订阅失败: $e');
